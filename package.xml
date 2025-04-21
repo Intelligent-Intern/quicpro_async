@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<package>
+    <name>quicpro_async</name>
+    <version>
+        <release>0.1.0</release>
+    </version>
+    <stability>
+        <release>alpha</release>
+    </stability>
+    <license>PHP</license>
+    <maintainer>
+        <role>lead</role>
+        <name>Your Name</name>
+        <email>you@example.com</email>
+    </maintainer>
+    <summary>Async QUIC/HTTP3 PHP extension</summary>
+    <description>Async wrapper for Cloudflare quiche</description>
+    <release_notes>Initial alpha release</release_notes>
+    <contents>
+        <dir name="/">
+            <file name="config.m4"/><file name="configure.ac"/><file name="Makefile.am"/>
+            <dir name="src"><file name="php_quicpro.c"/><file name="session.c"/><file name="http3.c"/><file name="poll.c"/><file name="tls.c"/></dir>
+            <dir name="include"><file name="php_quicpro.h"/></dir>
+            <dir name="stubs"><file name="quicpro_async.php"/></dir>
+        </dir>
+    </contents>
+</package>

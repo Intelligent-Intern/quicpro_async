@@ -1,0 +1,53 @@
+# Build artefacts
+/Makefile
+/Makefile.in
+/Makefile.objects
+/Makefile.fragments
+/.libs/
+/modules/
+/libs/
+/src/*.o
+/src/*.lo
+/src/*.la
+/src/*.dep
+*.so
+*.lo
+*.la
+/src/.libs/
+/*.la
+/*.so
+
+# Autotools generiert
+/aclocal.m4
+/autom4te.cache/
+/compile
+/config.guess
+/config.sub
+/config.h
+/config.h.in
+/config.cache
+/config.log
+/config.nice
+/config.status
+/configure
+/depcomp
+/install-sh
+/libtool
+/ltmain.sh
+/missing
+
+# Rust / quiche build
+/quiche/target/
+
+# Temp/IDE
+*~
+*.swp
+.DS_Store
+.vscode/
+.idea/
+
+/build
+/test_certs
+
+# composer dependencies
+/tests/benchmark/vendor/

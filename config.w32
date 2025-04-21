@@ -1,0 +1,5 @@
+ARG_WITH("quicpro_async", "build QuicPro Async support", "no");
+if (PHP_QUICPRO_ASYNC != "no") {
+    ADD_SOURCES(configure_module_dirname + "\\src", "php_quicpro.c session.c http3.c poll.c tls.c");
+    ADD_LIBRARY("quiche");
+}
