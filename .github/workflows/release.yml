@@ -1,0 +1,87 @@
+name: Build & Publish PECL Package
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      STORAGE_CONTAINER: '$web'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y php-dev php-pear autoconf automake libtool \
+               build-essential pkg-config cargo libssl-dev git
+
+      - name: Register local channel
+        run: |
+          pear channel-add "$(pwd)/channel.xml" || true
+
+      - name: Build PECL package
+        run: |
+          pear package
+          echo "PKG_FILE=$(ls *.tgz)" >> $GITHUB_ENV
+          echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          echo "BUILD_DATE=$(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_ENV
+
+      - name: Rename dev package
+        if: "!startsWith(github.ref, 'refs/tags/v')"
+        run: |
+          mv "$PKG_FILE" "quicpro_async-dev-${SHORT_SHA}.tgz"
+          echo "PKG_FILE=quicpro_async-dev-${SHORT_SHA}.tgz" >> $GITHUB_ENV
+
+      - name: Prepare index.html
+        run: |
+          sed -e "s/<!--BUILD_DATE-->/${BUILD_DATE}/" \
+              -e "s/<!--COMMIT-->/${SHORT_SHA}/" \
+              index.html > index.tmp
+          mv index.tmp index.html
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Upload Artifacts to Blob Storage
+        run: |
+          az storage blob upload-batch \
+            --account-name ${{ secrets.STORAGE_ACCOUNT }} \
+            --destination $STORAGE_CONTAINER \
+            --source . \
+            --pattern "*.xml" \
+            --overwrite
+
+          az storage blob upload \
+            --account-name ${{ secrets.STORAGE_ACCOUNT }} \
+            --container-name $STORAGE_CONTAINER \
+            --file "$PKG_FILE" \
+            --name "get/$PKG_FILE" \
+            --content-type application/x-gzip \
+            --overwrite
+
+          az storage blob upload \
+            --account-name ${{ secrets.STORAGE_ACCOUNT }} \
+            --container-name $STORAGE_CONTAINER \
+            --file index.html \
+            --name index.html \
+            --content-type text/html \
+            --overwrite
