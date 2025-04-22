@@ -39,51 +39,51 @@ jobs:
       - name: Build PECL package
         run: |
           pear package
-          echo "PKG_FILE=$(ls *.tgz)" >> \$GITHUB_ENV
-          echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> \$GITHUB_ENV
-          echo "BUILD_DATE=$(date -u '+%Y-%m-%d %H:%M UTC')" >> \$GITHUB_ENV
+          echo "PKG_FILE=$(ls *.tgz)" >> $GITHUB_ENV
+          echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          echo "BUILD_DATE=$(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_ENV
 
       - name: Rename dev package
         if: "!startsWith(github.ref, 'refs/tags/v')"
         run: |
-          mv "\$PKG_FILE" "quicpro_async-dev-\${SHORT_SHA}.tgz"
-          echo "PKG_FILE=quicpro_async-dev-\${SHORT_SHA}.tgz" >> \$GITHUB_ENV
+          mv "$PKG_FILE" "quicpro_async-dev-${SHORT_SHA}.tgz"
+          echo "PKG_FILE=quicpro_async-dev-${SHORT_SHA}.tgz" >> $GITHUB_ENV
 
       - name: Prepare index.html
         run: |
-          sed -e "s/<!--BUILD_DATE-->/\${BUILD_DATE}/" \
-              -e "s/<!--COMMIT-->/\${SHORT_SHA}/" \
+          sed -e "s/<!--BUILD_DATE-->/${BUILD_DATE}/" \
+              -e "s/<!--COMMIT-->/${SHORT_SHA}/" \
               index.html > index.tmp
           mv index.tmp index.html
 
       - name: Azure Login
         uses: azure/login@v1
         with:
-          creds: \${{ secrets.AZURE_CREDENTIALS }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Upload Artifacts to Blob Storage
         run: |
           az storage blob upload-batch \
             --auth-mode login \
-            --account-name \${{ secrets.STORAGE_ACCOUNT }} \
-            --destination \$STORAGE_CONTAINER \
+            --account-name ${{ secrets.STORAGE_ACCOUNT }} \
+            --destination $STORAGE_CONTAINER \
             --source . \
             --pattern "*.xml" \
             --overwrite
 
           az storage blob upload \
             --auth-mode login \
-            --account-name \${{ secrets.STORAGE_ACCOUNT }} \
-            --container-name \$STORAGE_CONTAINER \
-            --file "\$PKG_FILE" \
-            --name "get/\$PKG_FILE" \
+            --account-name ${{ secrets.STORAGE_ACCOUNT }} \
+            --container-name $STORAGE_CONTAINER \
+            --file "$PKG_FILE" \
+            --name "get/$PKG_FILE" \
             --content-type application/x-gzip \
             --overwrite
 
           az storage blob upload \
             --auth-mode login \
-            --account-name \${{ secrets.STORAGE_ACCOUNT }} \
-            --container-name \$STORAGE_CONTAINER \
+            --account-name ${{ secrets.STORAGE_ACCOUNT }} \
+            --container-name $STORAGE_CONTAINER \
             --file index.html \
             --name index.html \
             --content-type text/html \
