@@ -63,14 +63,14 @@ jobs:
 
       - name: Upload Artifacts to Blob Storage
         run: |
-          az storage blob upload-batch \
+          az storage blob upload-batch \ --auth-mode login
             --account-name ${{ secrets.STORAGE_ACCOUNT }} \
             --destination $STORAGE_CONTAINER \
             --source . \
             --pattern "*.xml" \
             --overwrite
 
-          az storage blob upload \
+          az storage blob upload \ --auth-mode login
             --account-name ${{ secrets.STORAGE_ACCOUNT }} \
             --container-name $STORAGE_CONTAINER \
             --file "$PKG_FILE" \
@@ -78,7 +78,7 @@ jobs:
             --content-type application/x-gzip \
             --overwrite
 
-          az storage blob upload \
+          az storage blob upload \ --auth-mode login
             --account-name ${{ secrets.STORAGE_ACCOUNT }} \
             --container-name $STORAGE_CONTAINER \
             --file index.html \
