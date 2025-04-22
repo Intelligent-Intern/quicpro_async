@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<packages version="1.0" xmlns="http://pear.php.net/dtd/packages-1.0">
+  <p>
+    <n>quicpro_async</n>
+    <c>intelligentinternpecl.z1.web.core.windows.net</c>
+    <v>0.1.0</v>
+    <s>stable</s>
+    <f>get/quicpro_async-0.1.0.tgz</f>
+  </p>
+</packages>
