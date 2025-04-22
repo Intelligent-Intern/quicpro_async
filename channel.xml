@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<channel version="1.0"
+         xmlns="http://pear.php.net/channel-1.0">
+    <name>intelligentinternpecl.z13.web.core.windows.net</name>
+    <suggestedalias>quicpro</suggestedalias>
+    <summary>Private PECL channel hosting quicpro_async and related packages.</summary>
+    <servers>
+        <primary>
+            <rest>https://intelligentinternpecl.z13.web.core.windows.net</rest>
+        </primary>
+    </servers>
+    <maintainers>
+        <maintainer>
+            <handle>intelligentintern</handle>
+            <name>Jochen Schultz</name>
+            <email>jschultz@php.net</email>
+            <active>yes</active>
+        </maintainer>
+    </maintainers>
+    <protocols>
+        <rest>1.3</rest>
+    </protocols>
+    <version>1.0</version>
+</channel>

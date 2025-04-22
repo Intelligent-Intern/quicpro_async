@@ -1,27 +1,65 @@
-<?xml version="1.0"?>
-<package>
+<?xml version="1.0" encoding="UTF-8"?>
+<package version="2.1"
+         xmlns="http://pear.php.net/dtd/package-2.1"
+         xmlns:tasks="http://pear.php.net/dtd/tasks-1.0">
     <name>quicpro_async</name>
+    <channel>intelligentinternpecl.z13.web.core.windows.net</channel>
+    <summary>Asynchronous QUIC / HTTP‑3 extension for PHP</summary>
+    <description>Native wrapper around Cloudflare quiche providing non‑blocking QUIC, TLS 1.3 and HTTP/3 streams with Fiber support.</description>
+    <lead>
+        <name>Jochen Schultz</name>
+        <user>intelligentintern</user>
+        <email>jschultz@php.net</email>
+        <active>yes</active>
+    </lead>
+    <date>2025-04-22</date>
+    <time>05:30:00</time>
     <version>
         <release>0.1.0</release>
+        <api>0.1.0</api>
     </version>
     <stability>
-        <release>alpha</release>
+        <release>beta</release>
+        <api>beta</api>
     </stability>
-    <license>PHP</license>
-    <maintainer>
-        <role>lead</role>
-        <name>Your Name</name>
-        <email>you@example.com</email>
-    </maintainer>
-    <summary>Async QUIC/HTTP3 PHP extension</summary>
-    <description>Async wrapper for Cloudflare quiche</description>
-    <release_notes>Initial alpha release</release_notes>
+    <license uri="https://opensource.org/licenses/MIT">MIT</license>
+    <notes>Initial beta release.</notes>
     <contents>
         <dir name="/">
-            <file name="config.m4"/><file name="configure.ac"/><file name="Makefile.am"/>
-            <dir name="src"><file name="php_quicpro.c"/><file name="session.c"/><file name="http3.c"/><file name="poll.c"/><file name="tls.c"/></dir>
-            <dir name="include"><file name="php_quicpro.h"/></dir>
-            <dir name="stubs"><file name="quicpro_async.php"/></dir>
+            <file name="config.m4"        role="src"/>
+            <file name="config.w32"       role="src"/>
+            <file name="configure.ac"     role="src"/>
+            <file name="Makefile.am"      role="src"/>
+            <file name="php_quicpro.h"    role="src"/>
+            <dir name="src" role="src">
+                <file name="php_quicpro.c"          role="src"/>
+                <file name="session.c"              role="src"/>
+                <file name="http3.c"                role="src"/>
+                <file name="poll.c"                 role="src"/>
+                <file name="tls.c"                  role="src"/>
+                <file name="php_quicpro_arginfo.h"  role="src"/>
+            </dir>
+            <dir name="stubs" role="src">
+                <file name="quicpro_async.php" role="src"/>
+            </dir>
+            <dir name="tests" role="test">
+                <file name="basic.phpt" role="test"/>
+            </dir>
+            <file name="README.md"        role="doc"/>
+            <file name="LICENSE"          role="doc"/>
+            <file name="BUILD.md"         role="doc"/>
+            <file name="EXAMPLES.md"      role="doc"/>
+            <file name="CONTRIBUTING.md"  role="doc"/>
         </dir>
     </contents>
+    <dependencies>
+        <required>
+            <php><min>8.1.0</min></php>
+            <pearinstaller><min>1.10.0</min></pearinstaller>
+        </required>
+    </dependencies>
+    <providesextension>quicpro_async</providesextension>
+    <extsrcrelease>
+        <configureoption name="--enable-quicpro_async" prompt="Build the quicpro_async extension"/>
+    </extsrcrelease>
 </package>
