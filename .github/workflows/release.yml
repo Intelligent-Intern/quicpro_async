@@ -1,90 +1,104 @@
-name: Build & Publish PECL Package
+name: quicpro_async CI
 
 on:
   push:
-    tags:
-      - 'v*'
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  id-token: write
-
-defaults:
-  run:
-    shell: bash
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  publish:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+  build-test:
+    name: "${{ matrix.os }} – PHP ${{ matrix.php }}"
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu22, alpine]
+        php: [8.1, 8.2, 8.3, 8.4]
     env:
-      STORAGE_CONTAINER: '$web'
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
+      # ----------  Container setup for Alpine  ----------
+      - name: Switch to Alpine container (musl)
+        if: matrix.os == 'alpine'
+        uses: addnab/docker-run-action@v3
+        with:
+          image: alpine:3.19
+          options: |
+            --workdir /work
+            --volume ${{ github.workspace }}:/work
+            --env CI
+            --env CCACHE_DIR
+          run: |
+            apk add --no-cache bash git build-base linux-headers \
+                autoconf automake libtool bison re2c pkgconf \
+                rust cargo ccache openssl-dev zlib-dev curl-dev \
+                php${{ matrix.php }} php${{ matrix.php }}-dev
+            exec bash .github/workflows/run-build.sh
+
+      # ----------  Ubuntu host build  ----------
+      - name: Install dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu22'
+        run: |
+          sudo apt-get update -yq
+          sudo apt-get install -yq git build-essential autoconf pkg-config \
+              re2c bison libssl-dev zlib1g-dev ccache rustc cargo php${{ matrix.php }} \
+              php${{ matrix.php }}-dev php${{ matrix.php }}-xml
+
+      - name: Setup ccache
+        if: matrix.os == 'ubuntu22'
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ runner.os }}-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+
+      - name: Cargo vendor
+        run: |
+          cargo vendor > .cargo/config
+
+      - name: Build & test extension
+        uses: shivammathur/action-php-extension@v1
+        with:
+          extension-name: quicpro_async
+          php-version: ${{ matrix.php }}
+          ini-values: "quicpro_async.enable=1"
+          build-cmd: |
+            phpize
+            ./configure --enable-quicpro-sched
+            make -j$(nproc)
+          test-cmd: make TESTS="-j$(nproc) --show-diff"
+
+      - name: Upload perf.data on failure
+        if: failure() && (exists('perf.data'))
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-${{ matrix.os }}-${{ matrix.php }}
+          path: perf.data
+
+  static-musl:
+    name: "Alpine static (musl)"
+    runs-on: ubuntu-22.04
+    container: alpine:3.19
+    env:
+      RUSTFLAGS: "-C target-feature=+crt-static"
     steps:
       - uses: actions/checkout@v4
+      - run: apk add --no-cache build-base linux-headers \
+          autoconf automake libtool bison re2c pkgconf \
+          openssl-dev zlib-dev rust cargo ccache php8-phpdbg php8-dev
+      - run: cargo vendor > .cargo/config
+      - run: |
+          phpize
+          ./configure --enable-quicpro-sched LDFLAGS="-static"
+          make -j$(nproc)
+
+      - name: Upload .so artifact (static)
+        uses: actions/upload-artifact@v4
         with:
-          submodules: recursive
-
-      - name: Install build deps
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y php-dev php-pear autoconf automake libtool \
-               build-essential pkg-config cargo libssl-dev git
-
-      - name: Register local channel
-        run: |
-          pear channel-add "$(pwd)/channel.xml" || true
-
-      - name: Build PECL package
-        run: |
-          pear package
-          echo "PKG_FILE=$(ls *.tgz)" >> $GITHUB_ENV
-          echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-          echo "BUILD_DATE=$(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_ENV
-
-      - name: Rename dev package
-        if: "!startsWith(github.ref, 'refs/tags/v')"
-        run: |
-          mv "$PKG_FILE" "quicpro_async-dev-${SHORT_SHA}.tgz"
-          echo "PKG_FILE=quicpro_async-dev-${SHORT_SHA}.tgz" >> $GITHUB_ENV
-
-      - name: Prepare index.html
-        run: |
-          sed -e "s/<!--BUILD_DATE-->/${BUILD_DATE}/" \
-              -e "s/<!--COMMIT-->/${SHORT_SHA}/" \
-              index.html > index.tmp
-          mv index.tmp index.html
-
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Upload Artifacts to Blob Storage
-        run: |
-          az storage blob upload-batch \
-            --auth-mode login \
-            --account-name ${{ secrets.STORAGE_ACCOUNT }} \
-            --destination $STORAGE_CONTAINER \
-            --source . \
-            --pattern "*.xml" \
-            --overwrite
-
-          az storage blob upload \
-            --auth-mode login \
-            --account-name ${{ secrets.STORAGE_ACCOUNT }} \
-            --container-name $STORAGE_CONTAINER \
-            --file "$PKG_FILE" \
-            --name "get/$PKG_FILE" \
-            --content-type application/x-gzip \
-            --overwrite
-
-          az storage blob upload \
-            --auth-mode login \
-            --account-name ${{ secrets.STORAGE_ACCOUNT }} \
-            --container-name $STORAGE_CONTAINER \
-            --file index.html \
-            --name index.html \
-            --content-type text/html \
-            --overwrite
+          name: quicpro_async-static
+          path: modules/quicpro_async.so

@@ -1,112 +1,103 @@
 # quicpro_async 🚀
-Native QUIC / HTTP‑3 for PHP 8.x – non‑blocking & Fiber‑ready
+Native QUIC / HTTP‑3 **and WebSocket** support for PHP 8.1‑8.4 – non‑blocking, Fiber‑first
 
 [![PECL](https://img.shields.io/badge/PECL-quicpro__async-blue?logo=php)](https://intelligentinternpecl.z13.web.core.windows.net/packages/quicpro_async)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ---
 
-## Why should I care? 🌱⚡️
+## Why care about HTTP‑3 & QUIC? 🌱⚡️
 
-HTTP‑3 (QUIC + TLS 1.3) removes at least one round‑trip per new connection
-and multiplexes all requests on **one UDP socket**.  
-For busy PHP workloads this yields:
+HTTP‑3 collapses the TCP+TLS handshake into **one UDP flight** and multiplexes all requests over a single secure connection.  In PHP workloads this brings
 
-* **up to 80‑90 % less CPU time for series requests** –  
-  in our benchmark 1 000 requests: 0.008 s (QUIC) vs 0.054 s (cURL)
-* **shorter TTFB**, especially on mobile / lossy networks
-* **fewer file descriptors / epoll entries** – pack more tenants per host
+* **‑80 % CPU** for keep‑alive request bursts ¹
+* **significantly lower TTFB** on lossy / mobile networks
+* **one socket per origin** – fewer FD limits, smaller epoll sets
 
-`quicpro_async` delivers these benefits directly in PHP – no external
-curl binaries, no Go sidecars, no reverse proxies.
+`quicpro_async` delivers these wins **inside PHP itself** – no curl shell‑outs, no Go sidecars, no reverse proxy layer.
 
 ---
 
-## Highlights
+## Feature highlights
 
-* **Full HTTP‑3 client** – connect, send, receive, close
-* **Zero‑RTT** and session tickets out‑of‑the‑box
-* **Non‑blocking API** – drive progress with `quicpro_poll()`
-* **Fiber‑aware** – automatic yield / `await`‑style coding
-* Stats (`rtt`, `loss`, `cwnd`) & QLOG tracing for observability
-* Builds on Linux / macOS / Windows, quiche included as git‑submodule
-* MIT‑licensed & published on our PECL channel
+| Area | Status |
+|------|--------|
+| HTTP‑3 **client** | ✔ connect • 0‑RTT • header & body streaming |
+| WebSocket **client & server** (RFC 9220) | ✔ upgrade • frame send/recv • Fiber‑friendly |
+| QUIC **server mode** | ✔ SO_REUSEPORT multi‑worker • TLS ticket cache |
+| Observability | ✔ stats struct (rtt/loss/cwnd) • perf‑ring • optional QLOG/UDP |
+| **XDP / Busy‑poll** path | optional `--enable-quicpro-xdp` build flag |
+| Cross‑platform | Linux glibc / musl, macOS (darwin‑arm64), Windows WSL |
+
+> ¹ benchmark: 1 000 HTTPS requests – nginx 1.25 (QUIC) vs curl‑TLS+TCP on same host.
 
 ---
 
-## Quick install (PECL)
+## Installation (PECL)
 
-~~~bash
+```bash
 pecl channel-discover https://intelligentinternpecl.z13.web.core.windows.net/channel.xml
 pecl install quicpro_async
-echo "extension=quicpro_async.so" \
-     > $(php -i | grep -Po '/.*?/conf\.d')/30-quicpro_async.ini
-~~~
-
-For manual builds or distro packages see **BUILD.md**.
+# enable extension
+echo "extension=quicpro_async.so" > $(php -i | grep -Po '/.*?/conf\.d')/30-quicpro_async.ini
+```
+Manual build? See **BUILD.md**.
 
 ---
 
-## 3‑liner example
+## TL;DR – 5‑line GET using the OOP API
 
-~~~php
-<?php
-$sess = quicpro_connect('cloudflare-quic.com', 443);
-$id   = quicpro_send_request($sess, '/');
+```php
+use Quicpro\Config;
+use Quicpro\Session;
 
-while (!$resp = quicpro_receive_response($sess, $id)) {
-    quicpro_poll($sess, 50);  // yields inside a Fiber
-}
-
-echo $resp['body'];
-quicpro_close($sess);
-~~~
-
-More use cases (Fibers, object wrapper, pipelines) in **EXAMPLES.md**.
+$cfg  = Config::new();                    // defaults: verify_peer=on, ALPN h3
+$sess = new Session('cloudflare-quic.com', 443, $cfg);
+$id   = $sess->sendRequest('/');
+while (!$resp = $sess->receiveResponse($id)) $sess->poll(25);
+print $resp[":status"]."\n".$resp['body'];
+```
+More demos – streaming uploads, WebSocket broadcast hub, TLS‑resume workers – in **examples/**.
 
 ---
 
 ## Who benefits?
 
-| Persona              | Impact                                                                      |
-|----------------------|------------------------------------------------------------------------------|
-| **Site owners**      | Faster first byte, better Core Web Vitals, greener footprint.                |
-| **Hosting providers**| Fewer sockets & CPU → higher tenant density, “HTTP‑3 ready” badge.           |
-| **PHP developers**   | Real async HTTP client with plain PHP – no curl‑multi, no GDNS hacks.        |
-| **Serverless users** | Lower cold‑start cost: 0‑RTT + one socket that survives container reuse.     |
+| | Impact |
+|---|---|
+| **Developers** | First async HTTP client that is *pure PHP* – no ext/curl juggling |
+| **Ops / Hosts** | Fewer sockets → higher tenant density • QUIC by default badge |
+| **Edge & FaaS** | 0‑RTT handshakes + one socket survive warm starts |
 
 ---
 
-## Under the hood 🔍
+## How it works 🔍
 
-* Cloudflare **quiche** (≥ 0.22) handles transport, congestion, TLS 1.3
-* Lightweight C shim binds quiche FFI to Zend API
-* `quicpro_poll()` → `select()` → `quiche_conn_recv/send` → Fiber yield
-* Single resource struct stores socket, transport & H3 connection
-* Build: `phpize && ./configure --enable-quicpro_async` – cargo builds quiche
+* **quiche** ≥ 0.23 does transport, congestion, TLS 1.3.
+* Thin **C shim** exposes quiche FFI to the Zend VM; all heavy crypto stays in Rust.
+* **Fiber‑aware poll loop** – `Session::poll()` integrates busy‑poll/XDP or falls back to `select()`.
+* **Shared‑memory ticket LRU** enables resumption across forked workers.
 
 ---
 
 ## Roadmap
 
-* **0.2** – server mode (`quicpro_listen`), server push
-* **1.0** – stable API, PSR‑7 adapter, Prometheus metrics
-* **1.1** – WebTransport & DATAGRAM frames
-* **1.2** – automatic congestion tuning for LTE / 5G
+* **0.2** – Priority frames (RFC 9218), path‑MTU probing
+* **0.3** – Retry token box & DoS hardening
+* **1.0** – Stable PSR‑7 adapter, Prometheus metrics, Windows native build
 
 ---
 
-## Maintainer
+## Contributing
 
-Jochen Schultz – [jschultz@php.net](mailto:jschultz@php.net)  
-Feedback, bug reports and PRs are highly welcome!  
-See **CONTRIBUTING.md** for guidelines.
+PRs, issues and ideas welcome! Please read **CONTRIBUTING.md**.  Each PR is fuzz‑checked and run against the full CI matrix (Ubuntu & Alpine, PHP 8.1‑8.4).
+
+Maintainer – Jochen Schultz · <jschultz@php.net>
 
 ---
 
-## License
+### License
+MIT; see LICENSE.
 
-Distributed under the **MIT License**.  
-See the full text in **LICENSE**.
+*Happy hacking — bring your PHP apps to HTTP‑3 speed!* 🚀
 
-Looking forward to seeing what you build with HTTP‑3‑native PHP 🚀
