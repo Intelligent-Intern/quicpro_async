@@ -20,7 +20,7 @@ cd tests/benchmark && composer install && cd ../..
 *Only one test?*
 
 ~~~bash
-php -dextension=modules/quicpro_async.so run-tests.php tests/basic.phpt
+php -dextension=modules/quicpro_async.so run-tests.php tests/001_smoke.phpt
 ~~~
 
 ---

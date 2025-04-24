@@ -1,10 +1,12 @@
 <?php
 /** @generate-function-entries */
+
 class QuicPro_Session {}
+
 function quicpro_connect(string $host, int $port): resource {}
 function quicpro_close($session): void {}
 function quicpro_send_request($session, string $path, array $headers = null, string $body = ""): int {}
-function quicpro_receive_response($session, int $stream_id): array {}
+function quicpro_receive_response($session, int $stream_id): array|string|null {}
 function quicpro_poll($session, int $timeout_ms = -1): bool {}
 function quicpro_cancel_stream($session, int $stream_id): bool {}
 function quicpro_export_session_ticket($session): string {}

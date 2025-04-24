@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<release>
+    <v>0.1.0</v>
+    <s>beta</s>
+    <l>MIT</l>
+    <d>2025-04-22 11:00:00</d>
+    <m>intelligentintern</m>
+    <g>https://intelligentinternpecl.z1.web.core.windows.net/get/quicpro_async-0.1.0.tgz</g>
+    <x>
+        <dep type="pkg" rel="ge" version="8.1.0" optional="no">
+            <name>php</name>
+            <channel>pear.php.net</channel>
+        </dep>
+        <dep type="pkg" rel="ge" version="1.10.0" optional="no">
+            <name>PEAR</name>
+            <channel>pear.php.net</channel>
+        </dep>
+    </x>
+</release>

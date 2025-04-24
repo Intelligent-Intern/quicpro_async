@@ -12,7 +12,7 @@
         <email>jschultz@php.net</email>
         <active>yes</active>
     </lead>
-    <date>2025-04-22</date>
+    <date>2025-04-24</date>
     <time>06:00:00</time>
     <version>
         <release>0.1.0</release>
@@ -43,7 +43,7 @@
                 <file name="quicpro_async.php" role="src"/>
             </dir>
             <dir name="tests" role="test">
-                <file name="basic.phpt" role="test"/>
+                <file name="001_smoke.phpt" role="test"/>
             </dir>
             <file name="README.md"        role="doc"/>
             <file name="LICENSE"          role="doc"/>

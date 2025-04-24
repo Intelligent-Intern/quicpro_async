@@ -15,5 +15,6 @@
         <release>beta</release>
         <api>beta</api>
     </stability>
+    <g>https://intelligentinternpecl.z1.web.core.windows.net/get/quicpro_async-0.1.0.tgz</g>
     <providesextension>quicpro_async</providesextension>
 </package>

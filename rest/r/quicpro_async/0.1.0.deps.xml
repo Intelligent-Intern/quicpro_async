@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<deps>
+    <dep type="pkg" rel="ge" version="8.1.0" optional="no">
+        <name>php</name>
+        <channel>pear.php.net</channel>
+    </dep>
+    <dep type="pkg" rel="ge" version="1.10.0" optional="no">
+        <name>PEAR</name>
+        <channel>pear.php.net</channel>
+    </dep>
+</deps>
