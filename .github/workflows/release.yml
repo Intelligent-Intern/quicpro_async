@@ -7,52 +7,22 @@ on:
     branches: [ main ]
 
 jobs:
-  build-test:
-    name: "${{ matrix.os }} – PHP ${{ matrix.php }}"
-    runs-on: ubuntu-22.04
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu22, alpine]
-        php: [8.1, 8.2, 8.3, 8.4]
-    env:
-      CCACHE_DIR: ${{ github.workspace }}/.ccache
+  build-php-81:
+    name: Build and Test PHP 8.1
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      # ----------  Container setup for Alpine  ----------
-      - name: Switch to Alpine container (musl)
-        if: matrix.os == 'alpine'
-        uses: addnab/docker-run-action@v3
-        with:
-          image: alpine:3.19
-          options: |
-            --workdir /work
-            --volume ${{ github.workspace }}:/work
-            --env CI
-            --env CCACHE_DIR
-          run: |
-            apk add --no-cache bash git build-base linux-headers \
-                autoconf automake libtool bison re2c pkgconf \
-                rust cargo ccache openssl-dev zlib-dev curl-dev \
-                php${{ matrix.php }} php${{ matrix.php }}-dev
-            exec bash .github/workflows/run-build.sh
-
-      # ----------  Ubuntu host build  ----------
-      - name: Install dependencies (Ubuntu)
-        if: matrix.os == 'ubuntu22'
+      - name: Install dependencies PHP 8.1
         run: |
           sudo apt-get update -yq
-          sudo apt-get install -yq git build-essential autoconf pkg-config \
-              re2c bison libssl-dev zlib1g-dev ccache rustc cargo php${{ matrix.php }} \
-              php${{ matrix.php }}-dev php${{ matrix.php }}-xml
+          sudo apt-get install -yq git build-essential autoconf pkg-config re2c bison libssl-dev zlib1g-dev ccache rustc cargo php8.1 php8.1-dev php8.1-xml
 
       - name: Setup ccache
-        if: matrix.os == 'ubuntu22'
-        uses: actions/cache@v4
+        uses: actions/cache@v3
         with:
-          path: ${{ env.CCACHE_DIR }}
+          path: ${{ github.workspace }}/.ccache
           key: ${{ runner.os }}-ccache-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-ccache-
@@ -61,44 +31,102 @@ jobs:
         run: |
           cargo vendor > .cargo/config
 
-      - name: Build & test extension
-        uses: shivammathur/action-php-extension@v1
-        with:
-          extension-name: quicpro_async
-          php-version: ${{ matrix.php }}
-          ini-values: "quicpro_async.enable=1"
-          build-cmd: |
-            phpize
-            ./configure --enable-quicpro-sched
-            make -j$(nproc)
-          test-cmd: make TESTS="-j$(nproc) --show-diff"
-
-      - name: Upload perf.data on failure
-        if: failure() && (exists('perf.data'))
-        uses: actions/upload-artifact@v4
-        with:
-          name: perf-${{ matrix.os }}-${{ matrix.php }}
-          path: perf.data
-
-  static-musl:
-    name: "Alpine static (musl)"
-    runs-on: ubuntu-22.04
-    container: alpine:3.19
-    env:
-      RUSTFLAGS: "-C target-feature=+crt-static"
-    steps:
-      - uses: actions/checkout@v4
-      - run: apk add --no-cache build-base linux-headers \
-          autoconf automake libtool bison re2c pkgconf \
-          openssl-dev zlib-dev rust cargo ccache php8-phpdbg php8-dev
-      - run: cargo vendor > .cargo/config
-      - run: |
+      - name: Build & test extension PHP 8.1
+        run: |
           phpize
-          ./configure --enable-quicpro-sched LDFLAGS="-static"
+          ./configure --enable-quicpro-sched
           make -j$(nproc)
+          make TESTS="-j$(nproc) --show-diff"
 
-      - name: Upload .so artifact (static)
-        uses: actions/upload-artifact@v4
+  build-php-82:
+    name: Build and Test PHP 8.2
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install dependencies PHP 8.2
+        run: |
+          sudo apt-get update -yq
+          sudo apt-get install -yq git build-essential autoconf pkg-config re2c bison libssl-dev zlib1g-dev ccache rustc cargo php8.2 php8.2-dev php8.2-xml
+
+      - name: Setup ccache
+        uses: actions/cache@v3
         with:
-          name: quicpro_async-static
-          path: modules/quicpro_async.so
+          path: ${{ github.workspace }}/.ccache
+          key: ${{ runner.os }}-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+
+      - name: Cargo vendor
+        run: |
+          cargo vendor > .cargo/config
+
+      - name: Build & test extension PHP 8.2
+        run: |
+          phpize
+          ./configure --enable-quicpro-sched
+          make -j$(nproc)
+          make TESTS="-j$(nproc) --show-diff"
+
+  build-php-83:
+    name: Build and Test PHP 8.3
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install dependencies PHP 8.3
+        run: |
+          sudo apt-get update -yq
+          sudo apt-get install -yq git build-essential autoconf pkg-config re2c bison libssl-dev zlib1g-dev ccache rustc cargo php8.3 php8.3-dev php8.3-xml
+
+      - name: Setup ccache
+        uses: actions/cache@v3
+        with:
+          path: ${{ github.workspace }}/.ccache
+          key: ${{ runner.os }}-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+
+      - name: Cargo vendor
+        run: |
+          cargo vendor > .cargo/config
+
+      - name: Build & test extension PHP 8.3
+        run: |
+          phpize
+          ./configure --enable-quicpro-sched
+          make -j$(nproc)
+          make TESTS="-j$(nproc) --show-diff"
+
+  build-php-84:
+    name: Build and Test PHP 8.4
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install dependencies PHP 8.4
+        run: |
+          sudo apt-get update -yq
+          sudo apt-get install -yq git build-essential autoconf pkg-config re2c bison libssl-dev zlib1g-dev ccache rustc cargo php8.4 php8.4-dev php8.4-xml
+
+      - name: Setup ccache
+        uses: actions/cache@v3
+        with:
+          path: ${{ github.workspace }}/.ccache
+          key: ${{ runner.os }}-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+
+      - name: Cargo vendor
+        run: |
+          cargo vendor > .cargo/config
+
+      - name: Build & test extension PHP 8.4
+        run: |
+          phpize
+          ./configure --enable-quicpro-sched
+          make -j$(nproc)
+          make TESTS="-j$(nproc) --show-diff"

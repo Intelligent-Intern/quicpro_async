@@ -1,0 +1,107 @@
+services:
+  quic-demo:
+    profiles: ["test"]
+    image: quicpro_async.dev/quic-demo:latest
+    container_name: quic-demo
+    networks:
+      quicpro_net:
+        ipv4_address: 172.30.0.10
+    expose:
+      - "4433/udp"    # /echo, /chat
+      - "4434/udp"    # retry port
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z -u 127.0.0.1 4433"]
+      interval: 3s
+      retries: 10
+
+  tshark:
+    profiles: ["capture"]
+    image: quicpro_async.dev/tshark:latest
+    container_name: tshark-capture
+    networks:
+      quicpro_net:
+        ipv4_address: 172.30.0.100
+    volumes:
+      - ./captures:/captures
+    command: ["-i", "any", "-w", "/captures/capture.pcapng"]
+
+  php81:
+    profiles: ["test"]
+    image: quicpro_async.dev/php81:latest
+    container_name: php81-test
+    networks:
+      quicpro_net:
+        ipv4_address: 172.30.0.81
+    volumes:
+      - ./:/workspace:ro
+    working_dir: /workspace
+    environment:
+      QUIC_DEMO_HOST: quic-demo
+      QUIC_DEMO_PORT: "4433"
+      QUIC_RETRY_PORT: "4434"
+    command: ["/workspace/infra/scripts/run-tests-inside.sh"]
+
+  php82:
+    profiles: ["test"]
+    image: quicpro_async.dev/php82:latest
+    container_name: php82-test
+    networks:
+      quicpro_net:
+        ipv4_address: 172.30.0.82
+    volumes:
+      - ./:/workspace:ro
+    working_dir: /workspace
+    environment:
+      QUIC_DEMO_HOST: quic-demo
+      QUIC_DEMO_PORT: "4433"
+      QUIC_RETRY_PORT: "4434"
+    command: ["/workspace/infra/scripts/run-tests-inside.sh"]
+
+  php83:
+    profiles: ["test"]
+    image: quicpro_async.dev/php83:latest
+    container_name: php83-test
+    networks:
+      quicpro_net:
+        ipv4_address: 172.30.0.83
+    volumes:
+      - ./:/workspace:ro
+    working_dir: /workspace
+    environment:
+      QUIC_DEMO_HOST: quic-demo
+      QUIC_DEMO_PORT: "4433"
+      QUIC_RETRY_PORT: "4434"
+    command: ["/workspace/infra/scripts/run-tests-inside.sh"]
+
+  php84:
+    profiles: ["test"]
+    image: quicpro_async.dev/php84:latest
+    container_name: php84-test
+    networks:
+      quicpro_net:
+        ipv4_address: 172.30.0.84
+    volumes:
+      - ./:/workspace:ro
+    working_dir: /workspace
+    environment:
+      QUIC_DEMO_HOST: quic-demo
+      QUIC_DEMO_PORT: "4433"
+      QUIC_RETRY_PORT: "4434"
+    command: ["/workspace/infra/scripts/run-tests-inside.sh"]
+
+  vue3-websocket-demo:
+    profiles: ["websocket-demo"]
+    image: quicpro_async.dev/vue3-websocket-demo:latest
+    container_name: vue3-websocket-demo
+    networks:
+      quicpro_net:
+        ipv4_address: 172.30.0.50
+    ports:
+      - "8080:80"
+
+networks:
+  quicpro_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16

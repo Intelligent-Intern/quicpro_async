@@ -1,0 +1,24 @@
+-include src/php_quicpro.dep
+src/php_quicpro.lo: /home/jochen/projects/quicpro-php/quicpro_async/extension/src/php_quicpro.c
+	$(LIBTOOL) --tag=CC --mode=compile $(CC) -I. -I/home/jochen/projects/quicpro-php/quicpro_async/extension $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS)   -DZEND_COMPILE_DL_EXT=1 -c /home/jochen/projects/quicpro-php/quicpro_async/extension/src/php_quicpro.c -o src/php_quicpro.lo  -MMD -MF src/php_quicpro.dep -MT src/php_quicpro.lo
+-include src/session.dep
+src/session.lo: /home/jochen/projects/quicpro-php/quicpro_async/extension/src/session.c
+	$(LIBTOOL) --tag=CC --mode=compile $(CC) -I. -I/home/jochen/projects/quicpro-php/quicpro_async/extension $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS)   -DZEND_COMPILE_DL_EXT=1 -c /home/jochen/projects/quicpro-php/quicpro_async/extension/src/session.c -o src/session.lo  -MMD -MF src/session.dep -MT src/session.lo
+-include src/http3.dep
+src/http3.lo: /home/jochen/projects/quicpro-php/quicpro_async/extension/src/http3.c
+	$(LIBTOOL) --tag=CC --mode=compile $(CC) -I. -I/home/jochen/projects/quicpro-php/quicpro_async/extension $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS)   -DZEND_COMPILE_DL_EXT=1 -c /home/jochen/projects/quicpro-php/quicpro_async/extension/src/http3.c -o src/http3.lo  -MMD -MF src/http3.dep -MT src/http3.lo
+-include src/poll.dep
+src/poll.lo: /home/jochen/projects/quicpro-php/quicpro_async/extension/src/poll.c
+	$(LIBTOOL) --tag=CC --mode=compile $(CC) -I. -I/home/jochen/projects/quicpro-php/quicpro_async/extension $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS)   -DZEND_COMPILE_DL_EXT=1 -c /home/jochen/projects/quicpro-php/quicpro_async/extension/src/poll.c -o src/poll.lo  -MMD -MF src/poll.dep -MT src/poll.lo
+-include src/tls.dep
+src/tls.lo: /home/jochen/projects/quicpro-php/quicpro_async/extension/src/tls.c
+	$(LIBTOOL) --tag=CC --mode=compile $(CC) -I. -I/home/jochen/projects/quicpro-php/quicpro_async/extension $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS)   -DZEND_COMPILE_DL_EXT=1 -c /home/jochen/projects/quicpro-php/quicpro_async/extension/src/tls.c -o src/tls.lo  -MMD -MF src/tls.dep -MT src/tls.lo
+-include src/cancel.dep
+src/cancel.lo: /home/jochen/projects/quicpro-php/quicpro_async/extension/src/cancel.c
+	$(LIBTOOL) --tag=CC --mode=compile $(CC) -I. -I/home/jochen/projects/quicpro-php/quicpro_async/extension $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS)   -DZEND_COMPILE_DL_EXT=1 -c /home/jochen/projects/quicpro-php/quicpro_async/extension/src/cancel.c -o src/cancel.lo  -MMD -MF src/cancel.dep -MT src/cancel.lo
+$(phplibdir)/quicpro_async.la: ./quicpro_async.la
+	$(LIBTOOL) --tag=CC --mode=install cp ./quicpro_async.la $(phplibdir)
+
+./quicpro_async.la: $(shared_objects_quicpro_async) $(QUICPRO_ASYNC_SHARED_DEPENDENCIES)
+	$(LIBTOOL) --tag=CC --mode=link $(CC) -shared $(COMMON_FLAGS) $(CFLAGS_CLEAN) $(EXTRA_CFLAGS) $(LDFLAGS)  -o $@ -export-dynamic -avoid-version -prefer-pic -module -rpath $(phplibdir) $(EXTRA_LDFLAGS) $(shared_objects_quicpro_async) $(QUICPRO_ASYNC_SHARED_LIBADD)
+
