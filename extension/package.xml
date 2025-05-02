@@ -31,25 +31,84 @@
             <file name="configure.ac"     role="src"/>
             <file name="Makefile.am"      role="src"/>
             <file name="php_quicpro.h"    role="src"/>
+            <dir name="include" role="src">
+                <file name="php_quicpro_arginfo.h"  role="src"/>
+                <file name="cancel.h"  role="src"/>
+                <file name="session.h"  role="src"/>
+            </dir>
             <dir name="src" role="src">
                 <file name="php_quicpro.c"          role="src"/>
                 <file name="session.c"              role="src"/>
                 <file name="http3.c"                role="src"/>
                 <file name="poll.c"                 role="src"/>
                 <file name="tls.c"                  role="src"/>
-                <file name="php_quicpro_arginfo.h"  role="src"/>
             </dir>
             <dir name="stubs" role="src">
                 <file name="quicpro_async.php" role="src"/>
             </dir>
             <dir name="tests" role="test">
-                <file name="001_smoke.phpt" role="test"/>
+                <dir name="phpunit" role="test">
+                    <dir name="001_smoke" role="test">
+                        <file name="test.phpt" role="test"/>
+                    </dir>
+                    <dir name="002-connection" role="test">
+                        <file name="test.phpt" role="test"/>
+                        <file name="ClientConnectTest.phpt" role="test"/>
+                        <file name="HandshakeTest.phpt" role="test"/>
+                        <file name="ServerAcceptTest.phpt" role="test"/>
+                        <file name="StreamOpenTest.phpt" role="test"/>
+                        <file name="StreamTransferTest.phpt" role="test"/>
+                        <file name="WebsocketOpenTest.phpt" role="test"/>
+                        <file name="WebsocketTransferTest.phpt" role="test"/>
+                    </dir>
+                    <dir name="003-tls" role="test">
+                        <file name="HandshakeFailureTest.phpt" role="test"/>
+                        <file name="InvalidCertificateTest.phpt" role="test"/>
+                    </dir>
+                    <dir name="004-concurrency" role="test">
+                        <file name="MultipleConnectionsTest.phpt" role="test"/>
+                        <file name="ParallelStreamsTest.phpt" role="test"/>
+                    </dir>
+                    <dir name="005-fragmentation" role="test">
+                        <file name="LargePacketFragmentationTest.phpt" role="test"/>
+                        <file name="StreamReassemblyTest.phpt" role="test"/>
+                    </dir>
+                    <dir name="006-limits" role="test">
+                        <file name="MaxConnectionsExceededTest.phpt" role="test"/>
+                        <file name="MaxStreamsExceededTest.phpt" role="test"/>
+                    </dir>
+                    <dir name="007-packet_limitations" role="test">
+                        <file name="InvalidFrameTest.phpt" role="test"/>
+                        <file name="MalformedPacketTest.phpt" role="test"/>
+                    </dir>
+                    <dir name="008-retry" role="test">
+                        <file name="ClientReconnectTest.phpt" role="test"/>
+                        <file name="StreamRetryTest.phpt" role="test"/>
+                    </dir>
+                    <dir name="009-timeout" role="test">
+                        <file name="ClientConnectionTimeoutTest.phpt" role="test"/>
+                        <file name="ServerResponseTimeoutTest.phpt" role="test"/>
+                    </dir>
+                    <dir name="010-resources" role="test">
+                        <file name="ConnectionCloseMemoryTest.phpt" role="test"/>
+                        <file name="StreamCleanupTest.phpt" role="test"/>
+
+                    </dir>
+
+                </dir>
+            </dir>
+            <dir name="docs" role="src">
+                <file name="AI_EXAMPLES.md"                     role="doc"/>
+                <file name="ASYNC.md"                           role="doc"/>
+                <file name="BUILD.md"                           role="doc"/>
+                <file name="CONTRIBUTING.md"                    role="doc"/>
+                <file name="ERROR_AND_EXCEPTION_REFERENCE.md"   role="doc"/>
+                <file name="EXAMPLES.md"                        role="doc"/>
+                <file name="TESTING.md"                         role="doc"/>
+                <file name="TICKET_RESUMPTION_MULTIWORKER.md"   role="doc"/>
             </dir>
             <file name="README.md"        role="doc"/>
             <file name="LICENSE"          role="doc"/>
-            <file name="BUILD.md"         role="doc"/>
-            <file name="EXAMPLES.md"      role="doc"/>
-            <file name="CONTRIBUTING.md"  role="doc"/>
         </dir>
     </contents>
     <dependencies>
