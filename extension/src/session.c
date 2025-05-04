@@ -49,32 +49,9 @@
 #include <sys/types.h>
 #include <string.h>
 
-/* Forward declaration so PHP code can fetch the wrapped pointer
- * without touching Zend internals. */
-static inline quicpro_session_t *quicpro_obj_fetch(zval *zobj);
-
 /*─────────────────────────────────────────────────────────────────────────────
  *  1.  Zend object wrapper
  *─────────────────────────────────────────────────────────────────────────────*/
-
-/* The wrapper combines a pointer to the C session with the mandatory
- * `zend_object` footer.  Zend allocates one contiguous block of memory
- * that holds both fields, so a single free() releases everything. */
-typedef struct {
-    quicpro_session_t *sess;
-    zend_object        std;
-} quicpro_session_object;
-
-/* Extract the `quicpro_session_t *` from a zval that represents a
- * `Quicpro\Session` object.  Zend macros convert between the memory
- * layout of the object and the public zval API. */
-static inline quicpro_session_t *quicpro_obj_fetch(zval *zobj)
-{
-    quicpro_session_object *obj =
-        (quicpro_session_object *)((char *)Z_OBJ_P(zobj) -
-                                    XtOffsetOf(quicpro_session_object, std));
-    return obj->sess;
-}
 
 /* Custom free-handler that the garbage collector calls when the last
  * PHP reference to a Quicpro\Session disappears.  We own several
@@ -226,13 +203,8 @@ PHP_METHOD(QuicSession, __construct)
 
 /*─────────────────────────────────────────────────────────────────────────────
  *  3.  PHP method: close()
- *─────────────────────────────────────────────────────────────────────────────
- *
- * Closing a QUIC connection from user-land is optional because the
- * destructor covers the same ground.  Nevertheless an explicit call
- * allows scripts to flush telemetry immediately and frees the socket a
- * little earlier, which can matter under heavy load.
- */
+ *─────────────────────────────────────────────────────────────────────────────*/
+
 PHP_METHOD(QuicSession, close)
 {
     quicpro_session_t *s = quicpro_obj_fetch(getThis());

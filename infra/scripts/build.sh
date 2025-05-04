@@ -73,3 +73,7 @@ main() {
 }
 
 main "$@"
+
+
+
+# @TODO v1.0.0 we need to run "cargo build --release" inside the quiche directory once
