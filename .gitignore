@@ -49,3 +49,12 @@
 /bin
 azure-sp.json
 /benchmarks/vendor
+
+dump_code.sh
+code.txt
+
+
+/extension/build
+/extension/configure.ac
+/extension/run-tests.php
+/extension/src/.libs
