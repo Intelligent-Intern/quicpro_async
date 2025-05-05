@@ -22,6 +22,8 @@
 #endif
 
 #include <php.h>
+#include "php_quicpro_arginfo.h"
+
 #include <zend_object_handlers.h>
 #include <stdint.h>
 #include <string.h>

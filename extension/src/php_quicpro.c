@@ -6,10 +6,11 @@
  * makes that possible by using the QUIC protocol and HTTP/3 under the hood.
  * CEOs, think of it as the invisible engine that turbocharges your web calls.
  */
-
+#include <stddef.h>
 #include "session.h"             /* Core session data structure and cleanup routines   */
 #include "php_quicpro.h"         /* Declarations of every PHP_FUNCTION we implement    */
-#include "php_quicpro_arginfo.h" /* Generated Arginfo für alle quicpro_*-Funktionen    */
+#include "php_quicpro_arginfo.h"
+
 #include <ext/standard/info.h>   /* Für phpinfo()-Ausgabe                             */
 #include <quiche.h>              /* Unterliegender QUIC + HTTP/3-Engine                */
 
@@ -96,6 +97,7 @@ static const zend_function_entry quicpro_funcs[] = {
     PHP_FE(quicpro_version,               arginfo_quicpro_version)
     PHP_FE_END
 };
+
 
 /* ---------------------------------------------------------------------------
  *  Module entry / boiler-plate

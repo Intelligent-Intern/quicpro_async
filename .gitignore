@@ -58,3 +58,4 @@ code.txt
 /extension/configure.ac
 /extension/run-tests.php
 /extension/src/.libs
+/extension/.libs

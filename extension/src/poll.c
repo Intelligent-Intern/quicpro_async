@@ -19,7 +19,6 @@
 
 #include "session.h"             /* quicpro_session_t, extern int le_quicpro_session */
 #include "php_quicpro.h"
-#include "php_quicpro_arginfo.h"
 #include <quiche.h>
 
 /* ───────────────────────────────── Fiber support ────────────────────────── */

@@ -2,20 +2,10 @@
  * http3.c – Comprehensive HTTP/3 Request–Response Helpers for Non-Technical Executives
  *
  * This file implements two key operations: sending a request (quicpro_send_request)
- * and receiving a response (quicpro_receive_response). The goal is to allow someone
- * with no background in C or networking protocols to understand, at a high level,
- * exactly what each part of this code does, why it is needed, and how data flows through it.
- * Every comment below is written as if explaining to a family member who has never
- * used a computer before, avoiding jargon and assuming no prior technical knowledge.
+ * and receiving a response (quicpro_receive_response).
  */
-
-#include "php_quicpro.h"  /*
- * We include this header because it defines types and functions that let us store
- * the state of our PHP–QUIC connection as a resource. In PHP, a resource is like a
- * special ticket that we keep track of, so that subsequent calls know exactly which
- * connection we are referring to. Without this, our functions wouldn’t know which
- * connection context (session) to use when sending or receiving data.
- */
+#include <stddef.h>
+#include "php_quicpro.h"
 #include "session.h"      /*
  * This file declares the structure quicpro_session_t, which holds all the details
  * related to a single connection: the sockets, configuration, and internal state.
@@ -61,6 +51,9 @@
  * happens very quickly without touching the heap (dynamic memory). If more
  * headers are needed, we grow the array on the heap, as shown below.
  */
+
+/* Forward declaration so zif_quicpro_receive_response is defined */
+PHP_FUNCTION(quicpro_receive_response);
 
 /**
  * APPEND(item)
@@ -121,13 +114,7 @@ PHP_FUNCTION(quicpro_send_request)
     size_t            cap  = STATIC_HDR_CAP;
     size_t            idx  = 0;
 
-    /*
-     * Now we add the required HTTP/3 pseudo-headers that every request needs.
-     * First, we create a temporary header structure with the ":method" name
-     * and the HTTP method string provided by the user. Then we call APPEND to
-     * add it to our growing list of headers. We repeat this process for the
-     * path, scheme, and authority pseudo-headers to fully describe the request.
-     */
+    /* Add required pseudo-headers */
     {
         quiche_h3_header h = {
             (uint8_t *)":method", 7,
@@ -157,11 +144,7 @@ PHP_FUNCTION(quicpro_send_request)
         APPEND(h);
     }
 
-    /*
-     * Optional custom headers go here if provided by PHP. We iterate the
-     * associative array of header names and values. For each pair, we
-     * build a temporary header struct and append it in the same safe way.
-     */
+    /* Optional custom headers */
     if (z_headers && Z_TYPE_P(z_headers) == IS_ARRAY) {
         zend_string *key;
         zval        *val;

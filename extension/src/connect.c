@@ -8,7 +8,7 @@
  *  • Supports IPv6 + Happy‑Eyeballs (RFC 8305) fallback to IPv4
  *  • Optional `$iface` enables SO_BINDTODEVICE – useful for worker‑per‑queue
  */
-
+#include <stddef.h>
 #include "php_quicpro.h"
 #include <arpa/inet.h>
 #include <netdb.h>
