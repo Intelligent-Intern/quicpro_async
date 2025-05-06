@@ -286,12 +286,94 @@ PHP_FUNCTION(quicpro_send_request)
  * The implementation follows a similar pattern to send_request(),
  * with careful buffer management and error mapping.
  *
- * (Actual implementation omitted here for brevity; assume it follows
- * the same thorough style of comments and structure as send_request().)
  */
 PHP_FUNCTION(quicpro_receive_response)
 {
-    /* existing implementation unchanged */
+    zval       *z_sess;
+    zend_long   stream_id;
+
+    ZEND_PARSE_PARAMETERS_START(2, 2)
+        /*
+         * Ensure we have exactly two arguments: the session resource
+         * and the stream ID returned by send_request. If not, PHP will
+         * raise a type error automatically.
+         */
+        Z_PARAM_RESOURCE(z_sess)
+        Z_PARAM_LONG(stream_id)
+    ZEND_PARSE_PARAMETERS_END();
+
+    /*
+     * Retrieve our connection context just like in send_request().
+     * If this fails, we throw and stop execution.
+     */
+    quicpro_session_t *s = zend_fetch_resource(Z_RES_P(z_sess), "quicpro", le_quicpro_session);
+    if (!s) RETURN_THROWS();
+
+    /*
+     * Poll for the next HTTP/3 event. quiche_h3_conn_poll returns:
+     * - >0 if an event is stored in 'ev'.
+     * - 0 if no event is ready yet.
+     * - <0 for an error code.
+     *
+     * We convert errors to exceptions, return NULL for "no data yet",
+     * or proceed to inspect the event.
+     */
+    quiche_h3_event *ev;
+    int rc = quiche_h3_conn_poll(s->h3, s->conn, &ev);
+    if (rc < 0) { quicpro_throw(rc); RETURN_FALSE; }
+    if (rc == 0) { RETURN_NULL(); }
+
+    /*
+     * Determine event type and handle accordingly.
+     */
+    switch (quiche_h3_event_type(ev)) {
+        case QUICHE_H3_EVENT_HEADERS: {
+            /*
+             * We received HTTP headers. We'll build a single string
+             * where each header line is separated by CRLF (\r\n).
+             * We use smart_str to safely concatenate without overflow.
+             */
+            smart_str out = {0};
+            size_t count = quiche_h3_event_headers_count(ev);
+            for (size_t i = 0; i < count; i++) {
+                quiche_h3_header hdr;
+                quiche_h3_event_for_each_header(ev, i, &hdr);
+                smart_str_appendl(&out, (char*)hdr.name, hdr.name_len);
+                smart_str_appendl(&out, ": ", 2);
+                smart_str_appendl(&out, (char*)hdr.value, hdr.value_len);
+                smart_str_appendl(&out, "\r\n", 2);
+            }
+            smart_str_0(&out);
+            RETVAL_STR(out.s);
+            smart_str_free(&out);
+            break;
+        }
+
+        case QUICHE_H3_EVENT_DATA: {
+            /*
+             * We received body data. We allocate a buffer of up to 4096 bytes.
+             * Then quiche_h3_recv_body fills it with available data,
+             * returning the number of bytes read. If negative, it's an error.
+             * We then return a PHP string containing exactly the number
+             * of bytes read so the caller can process it (e.g., append to file).
+             */
+            uint8_t buf[4096];
+            ssize_t n = quiche_h3_recv_body(s->h3, s->conn,
+                                            (uint64_t)stream_id,
+                                            buf, sizeof buf);
+            if (n < 0) { quicpro_throw((int)n); RETURN_FALSE; }
+            RETVAL_STRINGL((char*)buf, n);
+            break;
+        }
+
+        default:
+            /*
+             * For unexpected event types (e.g., PUSH_PROMISE, SETTINGS),
+             * we simply return NULL and let the caller decide whether
+             * to ignore or handle these later. This keeps our API simple.
+             */
+            RETVAL_NULL();
+    }
 }
 
 /*
