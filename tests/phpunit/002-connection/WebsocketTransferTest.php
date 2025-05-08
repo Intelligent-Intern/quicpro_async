@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace QuicPro\Tests\Connection;
 
+use Exception;
 use PHPUnit\Framework\TestCase;
 use Quicpro\Session;
 
@@ -62,6 +63,9 @@ final class WebsocketTransferTest extends TestCase
      *      64 KiB exceeds a single QUIC frame in most setups; proves that
      *      quicpro_async reassembles fragmented WebSocket frames spread
      *      over several H3 DATA frames.
+     */
+    /**
+     * @throws Exception
      */
     public function testLargeBinaryEcho(): void
     {
