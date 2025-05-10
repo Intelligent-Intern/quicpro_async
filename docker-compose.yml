@@ -1,107 +1,202 @@
+version: "3.9"
+
+###############################################################################
+#  Intelligent-Intern QUIC / HTTP-3 testbed
+#
+#  – Traefik 3.2 terminates TLS / HTTP-1.1 / 2 / 3 for every service.
+#  – All services sit in the same private /24 network with fixed IPv4s.
+#  – Source tree is bind-mounted read-write so every PHP container
+#    can (re-)compile the PECL extension on startup.
+###############################################################################
+
+networks:
+  fullstack:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.30.10.0/24
+
 services:
+  ###############################################################################
+  #  Reverse-Proxy & Dashboard
+  ###############################################################################
+  traefik:
+    image: traefik:v3.2.2
+    container_name: traefik
+    hostname: traefik
+    init: true
+    profiles: ["infra"]
+    networks:
+      fullstack:
+        ipv4_address: 10.30.10.100
+    ports:
+      - "80:80"              # HTTP  → redirects to HTTPS
+      - "443:443"            # HTTPS / HTTP-3  (UDP+TCP)
+      - "8080:8080"          # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./infra/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./infra/traefik/configuration:/etc/traefik/configuration:ro
+      - ./var/traefik/certificates/local-cert.pem:/etc/traefik/certs/local-cert.crt:ro
+      - ./var/traefik/certificates/local-key.pem:/etc/traefik/certs/local-key.key:ro
+      - ~/.local/share/mkcert/rootCA.pem:/etc/ssl/certs/ca-certificates.crt:ro
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.traefik.rule: "Host(`traefik.local`)"
+      traefik.http.routers.traefik.entrypoints: "websecure"
+      traefik.http.routers.traefik.tls: "true"
+      traefik.http.services.traefik.loadbalancer.server.port: "8080"
+
+  ###############################################################################
+  #  QUIC demo server (PHP 8.4 + PECL quicpro_async)
+  ###############################################################################
   quic-demo:
-    profiles: ["test"]
     image: quicpro_async.dev/quic-demo:latest
     container_name: quic-demo
+    profiles: ["test"]
     networks:
-      quicpro_net:
-        ipv4_address: 172.30.0.10
+      fullstack:
+        ipv4_address: 10.30.10.10
+    volumes:
+      - ./:/workspace:rw
+    command: ["bash", "infra/scripts/run-demo-inside.sh"]
+    environment:
+      QUIC_DEMO_HOST: "0.0.0.0"
+      QUIC_DEMO_PORT: "4433"
+      QUIC_RETRY_PORT: "4434"
     expose:
-      - "4433/udp"    # /echo, /chat
-      - "4434/udp"    # retry port
+      - "4433/udp"
+      - "4434/udp"
     healthcheck:
       test: ["CMD-SHELL", "nc -z -u 127.0.0.1 4433"]
       interval: 3s
       retries: 10
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.demo.rule: "Host(`demo.dev`)"
+      traefik.http.routers.demo.entrypoints: "websecure"
+      traefik.http.routers.demo.tls: "true"
+      traefik.http.services.demo.loadbalancer.server.port: "4433"
 
+  ###############################################################################
+  #  PHPUnit runners (PHP 8.1 – 8.4) – each exposes its own QUIC endpoint
+  ###############################################################################
+  php81:
+    image: quicpro_async.dev/php81:latest
+    container_name: php81-test
+    profiles: ["test"]
+    networks:
+      fullstack:
+        ipv4_address: 10.30.10.81
+    volumes:
+      - ./:/workspace:rw
+    command: ["bash", "infra/scripts/run-tests-inside.sh"]
+    environment:
+      QUIC_DEMO_HOST: "quic-demo"
+      QUIC_DEMO_PORT: "4433"
+      QUIC_RETRY_PORT: "4434"
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.api81.rule: "Host(`api.php81.dev`)"
+      traefik.http.routers.api81.entrypoints: "websecure"
+      traefik.http.routers.api81.tls: "true"
+      traefik.http.services.api81.loadbalancer.server.port: "4433"
+
+  php82:
+    image: quicpro_async.dev/php82:latest
+    container_name: php82-test
+    profiles: ["test"]
+    networks:
+      fullstack:
+        ipv4_address: 10.30.10.82
+    volumes:
+      - ./:/workspace:rw
+    command: ["bash", "infra/scripts/run-tests-inside.sh"]
+    environment:
+      QUIC_DEMO_HOST: "quic-demo"
+      QUIC_DEMO_PORT: "4433"
+      QUIC_RETRY_PORT: "4434"
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.api82.rule: "Host(`api.php82.dev`)"
+      traefik.http.routers.api82.entrypoints: "websecure"
+      traefik.http.routers.api82.tls: "true"
+      traefik.http.services.api82.loadbalancer.server.port: "4433"
+
+  php83:
+    image: quicpro_async.dev/php83:latest
+    container_name: php83-test
+    profiles: ["test"]
+    networks:
+      fullstack:
+        ipv4_address: 10.30.10.83
+    volumes:
+      - ./:/workspace:rw
+    command: ["bash", "infra/scripts/run-tests-inside.sh"]
+    environment:
+      QUIC_DEMO_HOST: "quic-demo"
+      QUIC_DEMO_PORT: "4433"
+      QUIC_RETRY_PORT: "4434"
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.api83.rule: "Host(`api.php83.dev`)"
+      traefik.http.routers.api83.entrypoints: "websecure"
+      traefik.http.routers.api83.tls: "true"
+      traefik.http.services.api83.loadbalancer.server.port: "4433"
+
+  php84:
+    image: quicpro_async.dev/php84:latest
+    container_name: php84-test
+    profiles: ["test"]
+    networks:
+      fullstack:
+        ipv4_address: 10.30.10.84
+    volumes:
+      - ./:/workspace:rw
+    command: ["bash", "infra/scripts/run-tests-inside.sh"]
+    environment:
+      QUIC_DEMO_HOST: "quic-demo"
+      QUIC_DEMO_PORT: "4433"
+      QUIC_RETRY_PORT: "4434"
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.api84.rule: "Host(`api.php84.dev`)"
+      traefik.http.routers.api84.entrypoints: "websecure"
+      traefik.http.routers.api84.tls: "true"
+      traefik.http.services.api84.loadbalancer.server.port: "4433"
+
+  ###############################################################################
+  #  QUIC capture (optional)
+  ###############################################################################
   tshark:
-    profiles: ["capture"]
     image: quicpro_async.dev/tshark:latest
     container_name: tshark-capture
+    profiles: ["capture"]
     networks:
-      quicpro_net:
-        ipv4_address: 172.30.0.100
+      fullstack:
+        ipv4_address: 10.30.10.50
     volumes:
       - ./captures:/captures
     command: ["-i", "any", "-w", "/captures/capture.pcapng"]
 
-  php81:
-    profiles: ["test"]
-    image: quicpro_async.dev/php81:latest
-    container_name: php81-test
+  ###############################################################################
+  #  Front-end (Hot-reload via Vite)
+  ###############################################################################
+  vue_frontend:
+    image: registry.kreuzung1.de/intelligent-intern/vue-app:latest
+    container_name: vue_frontend
+    profiles: ["frontend"]
     networks:
-      quicpro_net:
-        ipv4_address: 172.30.0.81
-    volumes:
-      - ./:/workspace:ro
-    working_dir: /workspace
-    environment:
-      QUIC_DEMO_HOST: quic-demo
-      QUIC_DEMO_PORT: "4433"
-      QUIC_RETRY_PORT: "4434"
-    command: ["/workspace/infra/scripts/run-tests-inside.sh"]
-
-  php82:
-    profiles: ["test"]
-    image: quicpro_async.dev/php82:latest
-    container_name: php82-test
-    networks:
-      quicpro_net:
-        ipv4_address: 172.30.0.82
-    volumes:
-      - ./:/workspace:ro
-    working_dir: /workspace
-    environment:
-      QUIC_DEMO_HOST: quic-demo
-      QUIC_DEMO_PORT: "4433"
-      QUIC_RETRY_PORT: "4434"
-    command: ["/workspace/infra/scripts/run-tests-inside.sh"]
-
-  php83:
-    profiles: ["test"]
-    image: quicpro_async.dev/php83:latest
-    container_name: php83-test
-    networks:
-      quicpro_net:
-        ipv4_address: 172.30.0.83
-    volumes:
-      - ./:/workspace:ro
-    working_dir: /workspace
-    environment:
-      QUIC_DEMO_HOST: quic-demo
-      QUIC_DEMO_PORT: "4433"
-      QUIC_RETRY_PORT: "4434"
-    command: ["/workspace/infra/scripts/run-tests-inside.sh"]
-
-  php84:
-    profiles: ["test"]
-    image: quicpro_async.dev/php84:latest
-    container_name: php84-test
-    networks:
-      quicpro_net:
-        ipv4_address: 172.30.0.84
-    volumes:
-      - ./:/workspace:ro
-    working_dir: /workspace
-    environment:
-      QUIC_DEMO_HOST: quic-demo
-      QUIC_DEMO_PORT: "4433"
-      QUIC_RETRY_PORT: "4434"
-    command: ["/workspace/infra/scripts/run-tests-inside.sh"]
-
-  vue3-websocket-demo:
-    profiles: ["websocket-demo"]
-    image: quicpro_async.dev/vue3-websocket-demo:latest
-    container_name: vue3-websocket-demo
-    networks:
-      quicpro_net:
-        ipv4_address: 172.30.0.50
+      fullstack:
+        ipv4_address: 10.30.10.120
     ports:
-      - "8080:80"
-
-networks:
-  quicpro_net:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.30.0.0/16
+      - "8082:5173"
+    volumes:
+      - ./app/typescript/vue/frontend:/app:rw
+    command: ["sh", "-c", "npm install && npm run dev -- --host"]
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.frontend.rule: "Host(`frontend.dev`)"
+      traefik.http.routers.frontend.entrypoints: "websecure"
+      traefik.http.routers.frontend.tls: "true"
+      traefik.http.services.frontend.loadbalancer.server.port: "5173"
