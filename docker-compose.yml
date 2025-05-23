@@ -63,8 +63,8 @@ services:
       - ./benchmarks:/workspace/benchmarks:rw
       - ./var/traefik/certificates:/workspace/var/traefik/certificates:rw
       - ./Makefile:/workspace/Makefile:ro
-      - ./infra/php84/composer.lock:/workspace/composer.lock:ro
-      - ./infra/php84/composer.json:/workspace/composer.json:ro
+      - ./infra/demo-server/composer.lock:/workspace/composer.lock:ro
+      - ./infra/demo-server/composer.json:/workspace/composer.json:ro
     environment:
       QUIC_DEMO_HOST: "0.0.0.0"
       QUIC_DEMO_PORT: "4433"
