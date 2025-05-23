@@ -92,7 +92,7 @@ typedef struct quicpro_session_s {
     /*--------------------------------------------------------------------
      * 2.3 Identity
      *------------------------------------------------------------------*/
-    char             host[256];     /* Null‑terminated ASCII host name used
+    char             *host;            /* Null‑terminated ASCII host name used
                                        * for SNI and :authority header.
                                        * Copied from PHP parameter. */
     char             sni_host[256]; /* Explicit SNI string, if different from host.

@@ -26,6 +26,8 @@
 #include "php_quicpro.h"  /* core extension definitions */
 #include <quiche.h>       /* quiche API for QUIC & HTTP/3 */
 
+extern int le_quicpro;
+
 /* Delay in milliseconds before trying IPv4 after IPv6 (Happy‑Eyeballs) */
 #define HE_PROBE_DELAY_MS 250
 
@@ -196,7 +198,10 @@ PHP_FUNCTION(quicpro_connect)
     quicpro_session_t *s = ecalloc(1, sizeof(*s));
     s->sock = fd;               /* store the UDP socket FD */
     s->cfg  = cfg;              /* hold onto the quiche_config */
-    s->host = estrndup(host, host_len);
+    /* host als char[256] Feld kopieren */
+    size_t copylen = (host_len < sizeof(s->host) - 1) ? host_len : sizeof(s->host) - 1;
+    memcpy(s->host, host, copylen);
+    s->host[copylen] = '\0';
 
     /* Generate a random 16‑byte source connection ID (SCID) */
     uint8_t scid[16];
@@ -212,15 +217,11 @@ PHP_FUNCTION(quicpro_connect)
     );
     if (!s->conn) {
         freeaddrinfo(ai_list);
-        efree(s->host);
         efree(s);
         close(fd);
         quicpro_set_error("quiche_connect failed");
         RETURN_FALSE;
     }
-
-    /* Set the Server Name Indication (SNI) for TLS verification */
-    quiche_conn_set_tls_name(s->conn, host, host_len);
 
     /* Create and attach an HTTP/3 context on top of the QUIC connection */
     s->h3_cfg = quiche_h3_config_new();
@@ -230,5 +231,5 @@ PHP_FUNCTION(quicpro_connect)
     freeaddrinfo(ai_list);
 
     /* Finally, register our session struct as a PHP resource and return it */
-    ZEND_REGISTER_RESOURCE(return_value, s, le_quicpro);
+    RETURN_RES(zend_register_resource(s, le_quicpro));
 }

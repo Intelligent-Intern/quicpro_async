@@ -61,3 +61,6 @@ code.txt
 /extension/.libs
 
 vendor
+/var
+infra.txt
+dump_infra.sh

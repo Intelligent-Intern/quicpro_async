@@ -1,37 +1,30 @@
-# infra/php84/Dockerfile
-# ─────────────────────────────────────────────────────────────────────────────
-# Base on the official PHP 8.4 CLI image to avoid third-party PPAs entirely.
-# This image already includes phpize, php-config, and dev headers.
-#───────────────────────────────────────────────────────────────────────────────
-FROM php:8.4-cli
+FROM ubuntu:22.04
 
 ARG DEBIAN_FRONTEND=noninteractive
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH
 
-# 1) Install build dependencies
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      git \
-      build-essential \
-      autoconf \
-      pkg-config \
-      re2c \
-      bison \
-      libssl-dev \
-      zlib1g-dev \
-      ccache \
-      rustc \
-      cargo \
+      software-properties-common gnupg2 apt-transport-https lsb-release ca-certificates \
+      build-essential autoconf pkg-config make re2c bison ninja-build clang \
+      curl unzip git cmake ccache \
  && rm -rf /var/lib/apt/lists/*
 
-# 2) Build & install the quicpro_async extension
-WORKDIR /app
-COPY . /app
+RUN add-apt-repository ppa:ondrej/php -y \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends \
+      php8.4-cli php8.4-dev php8.4-common php8.4-zip php8.4-curl \
+      php8.4-xml php8.4-mbstring \
+ && rm -rf /var/lib/apt/lists/*
 
-RUN phpize \
- && ./configure --enable-quicpro-sched \
- && make -j"$(nproc)" \
- && make install \
- && echo "extension=quicpro_async.so" > /usr/local/etc/php/conf.d/20-quicpro_async.ini
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain stable \
+ && rustup component add rustfmt \
+ && rm -rf /root/.cargo/bin/rustup-init
 
-# 3) Default entrypoint runs PHP CLI with our variables order
-ENTRYPOINT ["php", "-d", "variables_order=EGPCS"]
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+WORKDIR /workspace
+
+CMD ["tail", "-f", "/dev/null"]

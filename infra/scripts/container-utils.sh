@@ -1,44 +1,68 @@
 #!/usr/bin/env bash
 #───────────────────────────────────────────────────────────────────────────────
 # CONTAINER-UTILS.SH
-# ensure_containers(): build any missing images, quietly on success,
-# but dump logs on failure for easy debugging.
+# Dedicated build functions for each container; using general-purpose messaging and loading helpers.
 #───────────────────────────────────────────────────────────────────────────────
 
+# Build QUIC demo server container
+build_quic_demo() {
+    build_container "quic-demo" "infra/demo-server" "quicpro_async.dev/quic-demo:latest"
+}
+
+# Build Tshark container
+build_tshark() {
+    build_container "tshark" "infra/tshark" "quicpro_async.dev/tshark:latest"
+}
+
+# Build PHP 8.1 container
+build_php81() {
+    build_container "php81" "infra/php81" "quicpro_async.dev/php81:latest"
+}
+
+# Build PHP 8.2 container
+build_php82() {
+    build_container "php82" "infra/php82" "quicpro_async.dev/php82:latest"
+}
+
+# Build PHP 8.3 container
+build_php83() {
+    build_container "php83" "infra/php83" "quicpro_async.dev/php83:latest"
+}
+
+# Build PHP 8.4 container
+build_php84() {
+    build_container "php84" "infra/php84" "quicpro_async.dev/php84:latest"
+}
+
+# Build Vue3 WebSocket demo container
+build_vue3_websocket_demo() {
+    build_container "vue3-websocket-demo" "infra/vue3-websocket-demo" "quicpro_async.dev/vue3-websocket-demo:latest"
+}
+
+# Core build logic with messaging and loading bar
+build_container() {
+    local name="$1" ctx="$2" image="$3"
+    local logfile
+    logfile=$(mktemp /tmp/build-"${name}".XXXXXX.log)
+    if docker build -t "${image}" "${ctx}" >"${logfile}" 2>&1; then
+        message "Built ${name}" 10 0
+    else
+        message "❌ Failed building ${name}" 9 0
+        message "Dumping logs for ${name}:" 9 15
+        cat "${logfile}"
+        rm -f "${logfile}"
+        exit 1
+    fi
+    rm -f "$logfile"
+}
+
+# Public function: call individual builders as needed
 ensure_containers() {
-    local services=(quic-demo tshark php81 php82 php83 php84 vue3-websocket-demo)
-    local total=${#services[@]} count=0 name ctx image log
-
-    for name in "${services[@]}"; do
-        count=$((count+1))
-        image="quicpro_async.dev/${name}:latest"
-        log="$(mktemp /tmp/build-${name}.XXXXXX.log)"
-
-        if ! docker image inspect "$image" >/dev/null 2>&1; then
-            message "Building container: ${name}" 5 0
-
-            case "$name" in
-                quic-demo)           ctx=demo-server ;;
-                tshark)              ctx=tshark ;;
-                php*)                ctx="$name" ;;
-                vue3-websocket-demo) ctx=vue3-websocket-demo ;;
-            esac
-
-            # build quietly, capture logs
-            if docker build -t "$image" "./infra/${ctx}" >"$log" 2>&1; then
-                message "Built ${name}" 10 0
-            else
-                message "❌ Failed building ${name}, dumping logs:" 9 15
-                cat "$log"
-                rm -f "$log"
-                exit 1
-            fi
-
-            rm -f "$log"
-        else
-            message "Container exists: ${name}" 8 0
-        fi
-
-        loading_bar "$count" "$total"
-    done
+    build_quic_demo
+    build_php81
+    build_php82
+    build_php83
+    build_php84
+#    build_tshark
+#    build_vue3_websocket_demo
 }

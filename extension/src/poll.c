@@ -70,24 +70,30 @@ extern zend_fiber *zend_fiber_get_current(void);
 extern void zend_fiber_suspend(zend_fiber *fiber, zval *value, zval *return_value);
 
 # define FIBER_GET_CURRENT()   zend_fiber_get_current()
+# define FIBER_IS_ACTIVE()     (FIBER_GET_CURRENT() != NULL)
+# define FIBER_SUSPEND()       zend_fiber_suspend(FIBER_GET_CURRENT(), NULL, NULL)
 
-#elif PHP_VERSION_ID >= 80100
+#elif PHP_VERSION_ID >= 80100 && PHP_VERSION_ID < 80400
 
-/* Older PHP 8.1–8.3: include the fiber header for EG(current_fiber) */
 # include <Zend/zend_fibers.h>
-# define FIBER_GET_CURRENT()   (EG(current_fiber))
+# ifdef ZEND_FIBER_G
+#   define FIBER_GET_CURRENT()   (EG(current_fiber))
+#   define FIBER_IS_ACTIVE()     (FIBER_GET_CURRENT() != NULL)
+    /* No public suspend API in <=8.3, so fallback to userland (no-op) */
+#   define FIBER_SUSPEND()       /* noop in C: see php8.3.fiber.md for workaround */
+# else
+#   define FIBER_GET_CURRENT()   NULL
+#   define FIBER_IS_ACTIVE()     0
+#   define FIBER_SUSPEND()       /* noop */
+# endif
 
 #else
 
-/* No fibers available */
 # define FIBER_GET_CURRENT()   NULL
+# define FIBER_IS_ACTIVE()     0
+# define FIBER_SUSPEND()       /* noop */
 
 #endif
-
-/* Check if we are running inside a Fiber */
-#define FIBER_IS_ACTIVE()   (FIBER_GET_CURRENT() != NULL)
-/* Suspend the current Fiber without passing a return value */
-#define FIBER_SUSPEND()     zend_fiber_suspend(FIBER_GET_CURRENT(), NULL, NULL)
 
 /*──────────────────── quiche Compatibility Shims ──────────────────────────*/
 
@@ -173,6 +179,8 @@ static ssize_t quicpro_xdp_drain(quicpro_session_t *s)
  *
  * If our busy-poll budget (in µs) is exhausted and we are inside a Fiber,
  * yield control back to the PHP scheduler to avoid monopolizing CPU.
+ * On PHP 8.4+, this will actually suspend the C Fiber;
+ * on PHP 8.1–8.3, this is a no-op and userland code must cooperate.
  */
 static inline void quicpro_yield_if_needed(int budget_us)
 {

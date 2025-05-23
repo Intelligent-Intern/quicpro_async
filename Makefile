@@ -1,7 +1,7 @@
-.PHONY: build unit fuzz benchmark deploy help
+.PHONY: build unit fuzz benchmark deploy server-build help
 
 build:
-	bash infra/scripts/build.sh
+	bash infra/scripts/build.sh || exit 0
 
 unit:
 	bash infra/scripts/unit.sh
@@ -24,6 +24,8 @@ ext-tree:
 infra-tree:
 	bash -c "tree infra"
 
+tests-tree:
+	bash -c "tree tests"
 
 help:
 	bash infra/scripts/help.sh

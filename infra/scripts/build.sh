@@ -18,11 +18,14 @@ set -euo pipefail
 #  present and executed.
 
 cd "$(dirname "${BASH_SOURCE[0]}")/../../"
-source infra/scripts/utils.sh
+
+source ./infra/scripts/utils.sh
 cd extension
 
+rm -rf ./src/.libs
+
 clean_extension() {
-  message "🧹 Cleaning previous build artefacts…" 6 0
+  message "Cleaning previous build artefacts…" 6 0
   (
     # If a Makefile exists from an earlier configure run, invoke make clean
     if [[ -f Makefile ]]; then make clean || true; fi
@@ -35,22 +38,42 @@ clean_extension() {
 }
 
 build_extension() {
-  message "🔨 Entering extension/ directory…" 5 0
-  message "📦 Setting up quiche include and lib paths…" 6 0
-  export CPPFLAGS="-I$(pwd)/include -I$(pwd)/../quiche/include"
+
+  if [[ -d ../quiche/include ]]; then
+    QUICHE_INC="../quiche/include"
+  elif [[ -d ../quiche/quiche/include ]]; then
+    QUICHE_INC="../quiche/quiche/include"
+  else
+    echo "❌ Fehler: quiche-Header nicht gefunden" >&2
+    exit 1
+  fi
+
+  message "Setting up quiche include and lib paths…" 6 0
+  export CPPFLAGS="-I$(pwd)/include -I$(pwd)/$QUICHE_INC"
   export LDFLAGS="-L$(pwd)/../quiche/target/release \
                   -Wl,-rpath=$(pwd)/../quiche/target/release"
+
   clean_extension
-  message "⚙️  Running phpize8.4…" 4 0
-  phpize8.4
-  message "🛠  Configuring for PHP 8.4…" 4 0
-  ./configure --with-php-config=/usr/bin/php-config8.4
-  message "🏗  Compiling extension…" 4 0
+
+  message "Running phpize…" 4 0
+  phpize
+
+  message "Configuring for PHP…" 4 0
+  ./configure --with-php-config="$(command -v php-config)"
+
+  message "Compiling extension…" 4 0
   make -j"$(nproc)"
-  message "🚚 Installing extension…" 4 0
-  sudo make install
+
+  message "Installing extension…" 4 0
+  if command -v sudo >/dev/null 2>&1; then
+      sudo make install
+  else
+      make install
+  fi
+
   message "✅ Extension built and installed successfully!" 10 0
 }
+
 
 update_release_date() {
   local today
@@ -64,16 +87,17 @@ run_act_publish() {
 }
 
 main() {
-  message "🚀 Starting PECL build…" 3 0
+  message "Starting PECL build…" 3 0
   build_extension
-  message "🎉 Build complete. You can now run ‘make unit’ to verify." 2 0
+  message "Build complete" 2 0
   # update_release_date
   # run_act_publish
-  cd ../../
+  cd ../
+  if command -v sudo >/dev/null 2>&1; then
+      sudo chmod 777 -R ./extension/
+  else
+      chmod 777 -R ./extension/
+  fi
 }
 
 main "$@"
-
-
-
-# @TODO v1.0.0 we need to run "cargo build --release" inside the quiche directory once

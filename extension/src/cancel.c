@@ -11,12 +11,13 @@
  * PHP function exposed to scripts.
  */
 
-#include <stddef.h>
+#include "php.h"
 #include <zend_exceptions.h>
 #include "php_quicpro.h"
-#include <quiche.h>
 #include "session.h"
 #include "cancel.h"
+#include <quiche.h>
+#include <stddef.h>
 
 /*---------- helpers --------------------------------------------------------
  *

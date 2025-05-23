@@ -44,6 +44,11 @@
  */
 extern quiche_config *quicpro_fetch_config(zval *zcfg);
 
+/* ---------------------------------------------------------------------------
+ * Optional: Extern symbol for legacy resource management
+ */
+extern int le_quicpro;
+
 /* ──────────────────────────────────────────────────────────────────────────
  * Zend object handlers for Quicpro\Session
  *
@@ -322,6 +327,42 @@ PHP_METHOD(QuicSession, close)
                       0,               /* application error code */
                       (const uint8_t *)"kthxbye", 7 /* reason phrase */);
     /* We leave the socket open until free_obj runs to keep the final frames */
+    RETURN_TRUE;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Global function: quicpro_close() – For legacy/resource usage
+ *
+ * Allows closing a session from PHP with quicpro_close($session).
+ * Supports both OOP and resource handles.
+ * Returns true if connection closed, false if already closed or invalid.
+ *───────────────────────────────────────────────────────────────────────────*/
+PHP_FUNCTION(quicpro_close)
+{
+    zval *zsession;
+    quicpro_session_t *s = NULL;
+
+    ZEND_PARSE_PARAMETERS_START(1, 1)
+        Z_PARAM_RESOURCE(zsession)
+    ZEND_PARSE_PARAMETERS_END();
+
+    if (Z_TYPE_P(zsession) == IS_OBJECT) {
+        s = quicpro_obj_fetch(zsession);
+    } else if (Z_TYPE_P(zsession) == IS_RESOURCE) {
+        s = (quicpro_session_t *)zend_fetch_resource_ex(zsession, "Quicpro\\Session", le_quicpro);
+    }
+
+    if (!s || !s->conn) {
+        RETURN_FALSE;
+    }
+
+    quiche_conn_close(
+        s->conn,
+        true, // application close
+        0,
+        (const uint8_t *)"kthxbye", 7
+    );
+
     RETURN_TRUE;
 }
 

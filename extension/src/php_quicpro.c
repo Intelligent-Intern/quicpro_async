@@ -73,6 +73,38 @@
 # include <unistd.h>                   /* close() */
 #endif
 
+#include <string.h>                    /* for strerror, strcpy, etc. */
+#include <php.h>
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Global Error Buffer (thread-local for ZTS, sonst global)
+ *───────────────────────────────────────────────────────────────────────────*/
+#ifndef QUICPRO_ERR_LEN
+#  define QUICPRO_ERR_LEN 256
+#endif
+
+#if defined(ZTS) && (PHP_VERSION_ID < 80200)
+# include <TSRM.h>
+ZEND_TLS char quicpro_last_error[QUICPRO_ERR_LEN];
+#else
+char quicpro_last_error[QUICPRO_ERR_LEN];
+#endif
+
+void quicpro_set_error(const char *msg)
+{
+    if (!msg) {
+        quicpro_last_error[0] = '\0';
+        return;
+    }
+    strncpy(quicpro_last_error, msg, QUICPRO_ERR_LEN - 1);
+    quicpro_last_error[QUICPRO_ERR_LEN - 1] = '\0';
+}
+
+const char *quicpro_get_error(void)
+{
+    return quicpro_last_error;
+}
+
 /* ──────────────────────────────────────────────────────────────────────────
  * 1) Function Prototypes
  *
@@ -94,16 +126,6 @@ PHP_FUNCTION(quicpro_get_last_error);
 PHP_FUNCTION(quicpro_get_stats);
 PHP_FUNCTION(quicpro_version);
 
-/* ──────────────────────────────────────────────────────────────────────────
- * 2) Module Startup / Info Prototypes
- *
- * These functions hook into PHP’s lifecycle:
- *   • PHP_MINIT_FUNCTION registers resources, classes, constants.
- *   • PHP_MINFO_FUNCTION prints our extension info in phpinfo().
- *───────────────────────────────────────────────────────────────────────────*/
-PHP_MINIT_FUNCTION(quicpro_async);
-PHP_MINFO_FUNCTION(quicpro_async);
-
 /* ---------------------------------------------------------------------------
  * Resource Registration
  *
@@ -113,7 +135,22 @@ PHP_MINFO_FUNCTION(quicpro_async);
  * PHP will automatically call quicpro_session_dtor() when the resource
  * is garbage-collected or explicitly freed.
  * ------------------------------------------------------------------------*/
-static int le_quicpro;   /* Unique resource ID for quicpro_session_t */
+int le_quicpro;   /* Unique resource ID for quicpro_session_t */
+
+int le_quicpro_session;
+
+zend_class_entry *quicpro_ce_exception;
+zend_class_entry *quicpro_ce_invalid_state;
+zend_class_entry *quicpro_ce_unknown_stream;
+zend_class_entry *quicpro_ce_stream_blocked;
+zend_class_entry *quicpro_ce_stream_limit;
+zend_class_entry *quicpro_ce_final_size;
+zend_class_entry *quicpro_ce_stream_stopped;
+zend_class_entry *quicpro_ce_fin_expected;
+zend_class_entry *quicpro_ce_invalid_fin_state;
+zend_class_entry *quicpro_ce_done;
+zend_class_entry *quicpro_ce_congestion_control;
+zend_class_entry *quicpro_ce_too_many_streams;
 
 /**
  * quicpro_session_dtor()
@@ -130,63 +167,25 @@ static int le_quicpro;   /* Unique resource ID for quicpro_session_t */
  */
 static void quicpro_session_dtor(zend_resource *res)
 {
-    /* Retrieve our session object from the resource pointer */
     quicpro_session_t *s = (quicpro_session_t *) res->ptr;
     if (!s) {
-        /* Nothing to free; possible double-free guard */
         return;
     }
-
-    /*
-     * HTTP/3 context cleanup:
-     * quiche_h3_conn_free() releases all memory held by the HTTP/3 layer.
-     */
     if (s->h3) {
         quiche_h3_conn_free(s->h3);
     }
-
-    /*
-     * QUIC connection cleanup:
-     * quiche_conn_free() tears down the QUIC state machine,
-     * including TLS 1.3 session teardown.
-     */
     if (s->conn) {
         quiche_conn_free(s->conn);
     }
-
-    /*
-     * HTTP/3 config cleanup:
-     * quiche_h3_config_free() frees memory allocated for header encodings.
-     */
     if (s->h3_cfg) {
         quiche_h3_config_free(s->h3_cfg);
     }
-
-    /*
-     * Core quiche_config cleanup:
-     * Each session holds a pointer to a shared quiche_config. In
-     * this build we assume one config per session, so free it here.
-     * Cast away const qualifier because quiche_config_free() expects
-     * a non-const pointer.
-     */
     if (s->cfg) {
         quiche_config_free((quiche_config *)s->cfg);
     }
-
-    /*
-     * Underlying UDP socket:
-     * When sock >= 0, we have an open fd that must be closed to
-     * avoid file descriptor leaks.
-     */
     if (s->sock >= 0) {
         close(s->sock);
     }
-
-    /*
-     * Finally, free the session structure itself. This also
-     * implicitly releases memory for the host string and
-     * ticket buffer embedded in the struct.
-     */
     efree(s);
 }
 
@@ -213,30 +212,22 @@ static const zend_function_entry quicpro_funcs[] = {
     PHP_FE_END
 };
 
+PHP_FUNCTION(quicpro_version)
+{
+    RETURN_STRING(PHP_QUICPRO_VERSION);
+}
+
+
 /* ---------------------------------------------------------------------------
- * Module Entry / Boilerplate
+ * quicpro_get_last_error
  *
- * This struct tells the PHP engine about our extension:
- *   • Name ("quicpro_async")
- *   • Version (PHP_QUICPRO_VERSION from php_quicpro.h)
- *   • Function table (quicpro_funcs)
- *   • Life-cycle hooks (MINIT and MINFO)
- *   • Module properties (persistent, globals)
- * ZEND_GET_MODULE exposes the entry point for dynamic loading.
+ * Returns the last error message set by quicpro_set_error().
  * ------------------------------------------------------------------------*/
-zend_module_entry quicpro_async_module_entry = {
-    STANDARD_MODULE_HEADER,
-    "quicpro_async",          /* Extension name in phpinfo() */
-    quicpro_funcs,            /* Function table */
-    PHP_MINIT(quicpro_async), /* MINIT handler */
-    NULL,                     /* MSHUTDOWN handler */
-    NULL,                     /* RINIT handler */
-    NULL,                     /* RSHUTDOWN handler */
-    PHP_MINFO(quicpro_async), /* MINFO handler */
-    PHP_QUICPRO_VERSION,      /* Version (string) */
-    STANDARD_MODULE_PROPERTIES
-};
-ZEND_GET_MODULE(quicpro_async)
+PHP_FUNCTION(quicpro_get_last_error)
+{
+    RETURN_STRING(quicpro_get_error());
+}
+
 
 /* ---------------------------------------------------------------------------
  * PHP_MINIT_FUNCTION(quicpro_async)
@@ -248,23 +239,18 @@ ZEND_GET_MODULE(quicpro_async)
 PHP_MINIT_FUNCTION(quicpro_async)
 {
 #ifdef PHP_WIN32
-    /* On Windows, startup Winsock (required for sockets API) */
     WSADATA wsa;
     WSAStartup(MAKEWORD(2,2), &wsa);
 #endif
 
-    /*
-     * Register the quicpro resource:
-     *    - quicpro_session_dtor will be called when the resource is freed.
-     *    - No persistent des- tuctor is needed (NULL).
-     *    - The name "quicpro" appears in PHP error messages if misused.
-     */
     le_quicpro = zend_register_list_destructors_ex(
-        quicpro_session_dtor,  /* Destructor callback */
-        NULL,                  /* Persistent destructor (unused) */
-        "quicpro",             /* Resource type name */
-        module_number          /* Module identifier */
+        quicpro_session_dtor,
+        NULL,
+        "quicpro",
+        module_number
     );
+
+    quicpro_set_error(NULL);
 
     return SUCCESS;
 }
@@ -287,3 +273,33 @@ PHP_MINFO_FUNCTION(quicpro_async)
     );
     php_info_print_table_end();
 }
+
+/* ---------------------------------------------------------------------------
+ * Module Entry / Boilerplate
+ *
+ * This struct tells the PHP engine about our extension:
+ *   • Name ("quicpro_async")
+ *   • Version (PHP_QUICPRO_VERSION from php_quicpro.h)
+ *   • Function table (quicpro_funcs)
+ *   • Life-cycle hooks (MINIT and MINFO)
+ *   • Module properties (persistent, globals)
+ * ZEND_GET_MODULE exposes the entry point for dynamic loading.
+ * ------------------------------------------------------------------------*/
+zend_module_entry quicpro_async_module_entry = {
+    STANDARD_MODULE_HEADER,
+    "quicpro_async",
+    quicpro_funcs,
+    PHP_MINIT(quicpro_async),
+    NULL,
+    NULL,
+    NULL,
+    PHP_MINFO(quicpro_async),
+    PHP_QUICPRO_VERSION,
+    STANDARD_MODULE_PROPERTIES
+};
+
+
+#ifdef COMPILE_DL_QUICPRO_ASYNC
+ZEND_GET_MODULE(quicpro_async)
+#endif
+

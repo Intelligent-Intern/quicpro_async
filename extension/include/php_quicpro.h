@@ -158,7 +158,13 @@ static inline quicpro_session_t *quicpro_obj_fetch(zval *zobj)
 #ifndef QUICPRO_ERR_LEN
 #  define QUICPRO_ERR_LEN 256
 #endif
-extern __thread char quicpro_last_error[QUICPRO_ERR_LEN];
+
+#if defined(ZTS) && (PHP_VERSION_ID < 80200)
+#  include <TSRM.h>
+   extern ZEND_TLS char quicpro_last_error[QUICPRO_ERR_LEN];
+#else
+   extern char quicpro_last_error[QUICPRO_ERR_LEN];
+#endif
 
 /*─────────────────────────────────────────────────────────────────────────────
  * quicpro_set_error()
@@ -169,15 +175,8 @@ extern __thread char quicpro_last_error[QUICPRO_ERR_LEN];
  * internal APIs to record human‑readable error context retrievable
  * via quicpro_get_last_error() in PHP.
  *─────────────────────────────────────────────────────────────────────────────*/
-static inline void quicpro_set_error(const char *msg)
-{
-    if (!msg) {
-        quicpro_last_error[0] = '\0';
-        return;
-    }
-    strncpy(quicpro_last_error, msg, QUICPRO_ERR_LEN - 1);
-    quicpro_last_error[QUICPRO_ERR_LEN - 1] = '\0';
-}
+void quicpro_set_error(const char *msg);
+const char *quicpro_get_error(void);
 
 /*─────────────────────────────────────────────────────────────────────────────
  * quicpro_fetch_config()

@@ -118,6 +118,22 @@ PHP_FUNCTION(quicpro_receive_response);
     } while (0)
 
 /*
+ * Header callback for quiche_h3_event_for_each_header
+ * Used in quicpro_receive_response
+ */
+static int header_cb(uint8_t *name, size_t name_len,
+                     uint8_t *value, size_t value_len,
+                     void *argp)
+{
+    smart_str *s = (smart_str *)argp;
+    smart_str_appendl(s, (char*)name, name_len);
+    smart_str_appendl(s, ": ", 2);
+    smart_str_appendl(s, (char*)value, value_len);
+    smart_str_appendl(s, "\r\n", 2);
+    return 0;
+}
+
+/*
  * PHP_FUNCTION: quicpro_send_request
  * ----------------------------------
  * Send an HTTP/3 request over an existing QUIC session.
@@ -328,21 +344,8 @@ PHP_FUNCTION(quicpro_receive_response)
      */
     switch (quiche_h3_event_type(ev)) {
         case QUICHE_H3_EVENT_HEADERS: {
-            /*
-             * We received HTTP headers. We'll build a single string
-             * where each header line is separated by CRLF (\r\n).
-             * We use smart_str to safely concatenate without overflow.
-             */
             smart_str out = {0};
-            size_t count = quiche_h3_event_headers_count(ev);
-            for (size_t i = 0; i < count; i++) {
-                quiche_h3_header hdr;
-                quiche_h3_event_for_each_header(ev, i, &hdr);
-                smart_str_appendl(&out, (char*)hdr.name, hdr.name_len);
-                smart_str_appendl(&out, ": ", 2);
-                smart_str_appendl(&out, (char*)hdr.value, hdr.value_len);
-                smart_str_appendl(&out, "\r\n", 2);
-            }
+            quiche_h3_event_for_each_header(ev, header_cb, &out);
             smart_str_0(&out);
             RETVAL_STR(out.s);
             smart_str_free(&out);

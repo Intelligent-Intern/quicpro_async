@@ -18,5 +18,5 @@ if test "$PHP_QUICPRO_ASYNC" != "no"; then
   PHP_SUBST(QUICPRO_ASYNC_SHARED_LIBADD)
 
   # Finally register our extension and all source files in one go
-  PHP_NEW_EXTENSION(quicpro_async, src/php_quicpro.c src/session.c src/http3.c src/poll.c src/tls.c src/cancel.c, $ext_shared)
+  PHP_NEW_EXTENSION(quicpro_async, src/php_quicpro.c src/session.c src/http3.c src/poll.c src/tls.c src/cancel.c src/connect.c, $ext_shared)
 fi

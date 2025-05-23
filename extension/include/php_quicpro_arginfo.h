@@ -35,13 +35,13 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_quicpro_connect, 0, 0, 2)
 ZEND_END_ARG_INFO()
 
 /*------------------------------------------------------------------------*/
-/* quicpro_close(resource $session): bool                                  */
+/* quicpro_close(resource|object $session): bool                           */
 /*------------------------------------------------------------------------*/
 /*
  * Gracefully close an existing QUIC session.
- *   $session:  The resource returned by quicpro_connect()
+ *   $session:  The resource returned by quicpro_connect() or Quicpro\Session object
  *
- * Returns true on success, false if the resource was invalid.
+ * Returns true on success, false if the resource/object was invalid.
  */
 ZEND_BEGIN_ARG_INFO_EX(arginfo_quicpro_close, 0, 0, 1)
     ZEND_ARG_INFO(0, session)
