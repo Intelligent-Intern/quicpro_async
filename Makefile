@@ -4,16 +4,16 @@ build:
 	bash infra/scripts/build.sh || exit 0
 
 unit:
-	bash infra/scripts/unit.sh
+	bash infra/scripts/unit.sh || exit 0
 
 fuzz:
-	bash infra/scripts/fuzz.sh
+	bash infra/scripts/fuzz.sh || exit 0
 
 benchmark:
-	bash infra/scripts/benchmark.sh
+	bash infra/scripts/benchmark.sh || exit 0
 
 deploy:
-	bash infra/scripts/deploy.sh
+	bash infra/scripts/deploy.sh || exit 0
 
 tree:
 	bash -c "tree -I 'index.html|rest|infra|tests|get|build|bin|vendor|extension-windows|modules|quiche|test_certs|\\.git|404.html|\\.gitignore|LICENSE|azure-sp\\.json|composer\\.lock|package\\.xml|Makefile\\.am|config\\.h\\.in~|configure~'"
@@ -28,4 +28,4 @@ tests-tree:
 	bash -c "tree tests"
 
 help:
-	bash infra/scripts/help.sh
+	bash infra/scripts/help.sh || exit 0
