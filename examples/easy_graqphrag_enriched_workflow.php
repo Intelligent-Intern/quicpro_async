@@ -5,7 +5,7 @@
  * Also assumes php.ini provides 'quicpro.llm.default_model'.
  */
 
-$urlToProcess = '[https://en.wikipedia.org/wiki/Retrieval-Augmented_Generation](https://en.wikipedia.org/wiki/Retrieval-Augmented_Generation)';
+$urlToProcess = 'https://en.wikipedia.org/wiki/Retrieval-Augmented_Generation';
 
 $initialData = ['target_url' => $urlToProcess];
 
