@@ -95,3 +95,16 @@ update_hosts() {
   message "Updated /etc/hosts" 10 0
 
 }
+
+# Style 1: Minimal single-line underline
+help_box() {
+  local title="$1"; shift; local items=("$@")
+  echo
+  echo "$title"
+  printf '%*s\n' "${#title}" '' | tr ' ' '-'
+  for it in "${items[@]}"; do
+    printf "  • %s\n" "$it"
+  done
+  echo
+}
+

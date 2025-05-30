@@ -31,7 +31,7 @@ use Quicpro\Session;
  *  called  **demo-quic**  (image: infra/demo-server) with the fixed
  *  address `172.19.0.10:4433/udp`.
  *
- *      QUIC_DEMO_HOST  (default demo-quic)
+ *      QUIC_DEMO_HOST  (default quic-demo)
  *      QUIC_DEMO_PORT  (default 4433)
  *
  *  override the endpoint when running on CI or another dev box.

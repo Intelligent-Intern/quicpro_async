@@ -1,15 +1,14 @@
-/* cancel.c – quicpro_cancel_stream() implementation
- *
- * This file implements the stream‐shutdown API for the quicpro_async extension.
- * When a PHP script calls quicpro_cancel_stream(), we translate that into
- * the appropriate quiche call to close either the read side, write side,
- * or both sides of a given QUIC stream. This is essential for proper
- * resource cleanup and half‐close semantics in HTTP/3. The code here
- * ensures that any protocol‐level error is converted into a PHP exception
- * so application code can catch and handle it. Below, we define two main
- * parts: helpers to map user requests into QUIC flags, and the public
- * PHP function exposed to scripts.
- */
+/* ------------------------------------------------------------------------- */
+/* cancel.c – Implementation of error mapping and stream shutdown helpers     */
+/*                                                                            */
+/* This file provides the implementation for:                                 */
+/*   - how_to_flags: Converts userland string into quiche shutdown bitmask    */
+/*   - throw_as_php_exception: Converts error code to PHP exception           */
+/*   - quicpro_cancel_stream: PHP API for stream close/half-close             */
+/*                                                                            */
+/* It is tightly integrated with the exception classes defined in php_quicpro.h*/
+/* and the resource types (session).                                          */
+/* ------------------------------------------------------------------------- */
 
 #include "php.h"
 #include <zend_exceptions.h>
@@ -19,40 +18,37 @@
 #include <quiche.h>
 #include <stddef.h>
 
-/*---------- helpers --------------------------------------------------------
- *
- * In this section we define internal utility functions that are not
- * directly exposed to PHP but are used by the public API. The primary helper
- * is `how_to_flags()`, which takes a string like "read" or "write" and
- * returns the corresponding quiche shutdown flags. We also provide
- * `throw_as_php_exception()`, which maps any quiche error code to one of
- * our PHP exception classes. This mapping is essential to present meaningful
- * errors to the user, instead of raw integers. We choose which PHP exception
- * subclass to use based on quiche’s negative return codes. Finally, we use
- * `zend_throw_exception_ex()` to raise an exception with a formatted message
- * that includes the numeric error code, so developers can log or debug issues
- * when a stream shutdown operation fails.
+/*
+ * how_to_flags
+ * ------------
+ * Internal helper that translates the PHP user string into the correct
+ * quiche shutdown flags.
  */
-
-static inline int how_to_flags(const char *how, size_t len)
+int how_to_flags(const char *how, size_t len)
 {
-    /* QUICHE_SHUTDOWN_READ  shuts down the read side of the stream. */
+    /* Match "read" exactly (case-insensitive) */
     if (len == 4 && strncasecmp(how, "read", 4) == 0)  return QUICHE_SHUTDOWN_READ;
-    /* QUICHE_SHUTDOWN_WRITE shuts down the write side of the stream. */
+    /* Match "write" exactly (case-insensitive) */
     if (len == 5 && strncasecmp(how, "write",5) == 0)  return QUICHE_SHUTDOWN_WRITE;
-    /* Default is to close both read and write if the argument is unrecognized. */
+    /* Default: close both directions if unknown or "both" */
     return QUICHE_SHUTDOWN_READ | QUICHE_SHUTDOWN_WRITE;
 }
 
-static inline void throw_as_php_exception(int quiche_err)
+/*
+ * throw_as_php_exception
+ * ---------------------
+ * Maps specific quiche error codes to well-typed PHP exception classes.
+ * Uses a macro for maintainability and to reduce copy-paste.
+ * If a known error code is matched, throws the specific subclass;
+ * otherwise falls back to quicpro_ce_exception (the base class).
+ */
+void throw_as_php_exception(int quiche_err)
 {
     zend_class_entry *ce = quicpro_ce_exception;
 
-    /* Map specific quiche error codes to our PHP exception subclasses. */
     switch (quiche_err) {
 #define CASE_MAP(err_code, exc_class) \
         case err_code: ce = exc_class; break;
-
 #ifdef QUICHE_ERR_INVALID_STREAM_STATE
         CASE_MAP(QUICHE_ERR_INVALID_STREAM_STATE,  quicpro_ce_invalid_state)
 #endif
@@ -86,11 +82,10 @@ static inline void throw_as_php_exception(int quiche_err)
 #ifdef QUICHE_ERR_TOO_MANY_OPEN_STREAMS
         CASE_MAP(QUICHE_ERR_TOO_MANY_OPEN_STREAMS, quicpro_ce_too_many_streams)
 #endif
-
 #undef CASE_MAP
     }
 
-    /* Finally throw: include the numeric code in the message for clarity. */
+    /* Always throw a PHP exception, include the error code for context */
     zend_throw_exception_ex(
         ce,
         quiche_err,
@@ -99,19 +94,15 @@ static inline void throw_as_php_exception(int quiche_err)
     );
 }
 
-/*---------- userland API ---------------------------------------------------
- *
- * quicpro_cancel_stream() is the function PHP code calls to perform a
- * half-close or full-close on a specific HTTP/3 stream. The user passes
- * the session resource, the stream ID, and optionally "read" or "write"
- * to indicate which direction to shut down. We parse these parameters,
- * look up the underlying quicpro_session_t, and then call into quiche:
- * quiche_conn_stream_shutdown(). If quiche returns a non‐zero error,
- * we convert it via throw_as_php_exception() and return false to PHP.
- * On success, we return true. This lets PHP applications gracefully
- * clean up streams and trigger end‐of‐stream notifications on the peer.
+/*
+ * quicpro_cancel_stream
+ * --------------------
+ * PHP API entry point for closing/half-closing a stream.
+ * Receives the session resource, the stream ID, and an optional mode string.
+ * Delegates to how_to_flags() for shutdown mode, and quiche_conn_stream_shutdown
+ * for protocol execution.
+ * Returns true on success, false and throws on protocol error.
  */
-
 PHP_FUNCTION(quicpro_cancel_stream)
 {
     zval      *z_sess;
@@ -119,6 +110,7 @@ PHP_FUNCTION(quicpro_cancel_stream)
     char      *how      = "both";
     size_t     how_len  = 4;
 
+    /* Parse parameters: resource, stream ID, optional shutdown mode */
     ZEND_PARSE_PARAMETERS_START(2, 3)
         Z_PARAM_RESOURCE(z_sess)
         Z_PARAM_LONG(stream_id)
@@ -126,16 +118,15 @@ PHP_FUNCTION(quicpro_cancel_stream)
         Z_PARAM_STRING(how, how_len)
     ZEND_PARSE_PARAMETERS_END();
 
-    /* Fetch our internal session object from the PHP resource. */
+    /* Fetch the internal session object from the PHP resource. */
     quicpro_session_t *s = zend_fetch_resource(
         Z_RES_P(z_sess), "quicpro", le_quicpro_session
     );
     if (!s) {
-        /* If fetching fails, throw and bail. */
         RETURN_THROWS();
     }
 
-    /* Invoke quiche to shut down the specified stream direction. */
+    /* Perform the shutdown operation using the mapped flags. */
     int rc = quiche_conn_stream_shutdown(
         s->conn,
         (uint64_t)stream_id,
@@ -143,12 +134,12 @@ PHP_FUNCTION(quicpro_cancel_stream)
         0
     );
 
-    /* If quiche returns an error, convert to a PHP exception. */
+    /* On error: throw an exception and return false to userland. */
     if (rc) {
         throw_as_php_exception(rc);
         RETURN_FALSE;
     }
 
-    /* On success, return TRUE to the caller. */
+    /* On success: return true. */
     RETURN_TRUE;
 }

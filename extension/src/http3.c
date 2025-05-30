@@ -34,7 +34,7 @@
  *   • php_quicpro.h         – Core extension definitions and resource APIs.
  *   • session.h             – Definition of quicpro_session_t, encapsulating
  *                             the UDP socket, quiche_conn, and HTTP/3 context.
- *   • cancel.h              – quicpro_throw(): maps quiche error codes to
+ *   • cancel.h              – throw_as_php_exception(): maps quiche error codes to
  *                             PHP exceptions.
  *   • quiche.h              – Low-level QUIC + HTTP/3 stack.
  *   • zend_smart_str.h      – PHP’s smart_str for safe string building.
@@ -58,7 +58,7 @@
  * Error Handling
  * --------------
  * Any failure in quiche_h3_send_request() or quiche_h3_send_body() returns
- * a negative error code, which we immediately feed into quicpro_throw(), resulting
+ * a negative error code, which we immediately feed into throw_as_php_exception(), resulting
  * in a specific Quicpro\Exception subclass.  The PHP function then returns FALSE,
  * allowing user code to catch and inspect the exception or handle the error.
  */
@@ -67,7 +67,7 @@
 #include <stddef.h>               /* size_t */
 #include "php_quicpro.h"          /* Core extension API (resources, errors) */
 #include "session.h"              /* quicpro_session_t */
-#include "cancel.h"               /* quicpro_throw() */
+#include "cancel.h"               /* throw_as_php_exception() */
 #include <quiche.h>               /* QUIC + HTTP/3 protocol implementation */
 #include <zend_smart_str.h>       /* smart_str for dynamic string building */
 #include <errno.h>                /* errno values for system errors */
@@ -119,7 +119,7 @@ PHP_FUNCTION(quicpro_receive_response);
 
 /*
  * Header callback for quiche_h3_event_for_each_header
- * Used in quicpro_receive_response
+ * Used in quicpro_receive_response to serialize HTTP/3 headers into a single string.
  */
 static int header_cb(uint8_t *name, size_t name_len,
                      uint8_t *value, size_t value_len,
@@ -164,7 +164,7 @@ static int header_cb(uint8_t *name, size_t name_len,
  *   6. Call quiche_h3_send_request():
  *      - Pass the assembled `hdrs` array, the number of headers `idx`,
  *        and a flag indicating whether this is the end of stream.
- *      - On error (< 0), map the error code via quicpro_throw() and
+ *      - On error (< 0), map the error code via throw_as_php_exception() and
  *        return FALSE to PHP.
  *
  *   7. If a body was supplied, call quiche_h3_send_body():
@@ -263,7 +263,7 @@ PHP_FUNCTION(quicpro_send_request)
     );
     if ((int64_t)stream_id < 0) {
         /* Map error code to PHP exception and bail out */
-        quicpro_throw((int)stream_id);
+        throw_as_php_exception((int)stream_id);
         RETURN_FALSE;
     }
 
@@ -275,7 +275,7 @@ PHP_FUNCTION(quicpro_send_request)
             s->h3, s->conn, stream_id, b, b_len, 1
         );
         if (rc < 0) {
-            quicpro_throw((int)rc);
+            throw_as_php_exception((int)rc);
             RETURN_FALSE;
         }
     }
@@ -291,17 +291,11 @@ PHP_FUNCTION(quicpro_send_request)
  *
  * This function is responsible for:
  *   1. Parsing the session resource and stream ID from PHP.
- *   2. Calling quiche_h3_recv_response() to read headers.
- *   3. Mapping raw quiche_h3_header arrays into a PHP associative array.
- *   4. Reading response body via quiche_h3_recv_body().
- *   5. Returning a PHP array with keys:
- *        - status: int (HTTP status code)
- *        - headers: array of [name => value]
- *        - body: string (payload)
- *
- * The implementation follows a similar pattern to send_request(),
- * with careful buffer management and error mapping.
- *
+ *   2. Polling for the next HTTP/3 event using quiche_h3_conn_poll.
+ *   3. Handling error codes: <0 mapped to PHP exception, 0 returns NULL.
+ *   4. For headers, serialize using header_cb into a PHP string.
+ *   5. For data, allocate a buffer and return body as PHP string.
+ *   6. For unknown event types, return NULL (caller decides).
  */
 PHP_FUNCTION(quicpro_receive_response)
 {
@@ -336,7 +330,7 @@ PHP_FUNCTION(quicpro_receive_response)
      */
     quiche_h3_event *ev;
     int rc = quiche_h3_conn_poll(s->h3, s->conn, &ev);
-    if (rc < 0) { quicpro_throw(rc); RETURN_FALSE; }
+    if (rc < 0) { throw_as_php_exception(rc); RETURN_FALSE; }
     if (rc == 0) { RETURN_NULL(); }
 
     /*
@@ -364,7 +358,7 @@ PHP_FUNCTION(quicpro_receive_response)
             ssize_t n = quiche_h3_recv_body(s->h3, s->conn,
                                             (uint64_t)stream_id,
                                             buf, sizeof buf);
-            if (n < 0) { quicpro_throw((int)n); RETURN_FALSE; }
+            if (n < 0) { throw_as_php_exception((int)n); RETURN_FALSE; }
             RETVAL_STRINGL((char*)buf, n);
             break;
         }

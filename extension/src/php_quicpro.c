@@ -50,9 +50,56 @@
  *   • Handles MINIT to register resources and classes.
  *   • Implements MINFO so phpinfo() shows our support and quiche version.
  *
- * Strap in, because from here on out you’ll see a blend of Zend macros,
- * quiche calls, and careful resource management to bring the future
- * of web transport into your PHP scripts.
+ * --------------------------------------------------------------------------
+ * TLS Session Resumption & Multi-Worker Scaling (SESSION TICKET SYSTEM)
+ * --------------------------------------------------------------------------
+ *
+ * What does this extension do for TLS session resumption, zero‑RTT, and scaling?
+ *
+ *  - QUIC and TLS 1.3 can use "session tickets" for instant, zero‑RTT reconnects.
+ *  - These tickets are encrypted blobs given to the client at handshake end.
+ *  - A client presents a ticket next time; the handshake skips a round-trip.
+ *  - In PHP multi-worker servers, each worker must see all tickets to support resumption.
+ *
+ * This extension implements FIVE retention strategies for session tickets:
+ *   1. Live object: keep the `$sess` resource in a global variable (single-process).
+ *   2. Ticket cache: export ticket, store in APCu/Redis/file, import in a new process.
+ *   3. Warm container: container/serverless (Lambda) – re-use across invocations.
+ *   4. Shared-memory LRU: built-in shm cache, all forked workers access the same ring.
+ *   5. Stateless LB: anycast, tickets follow the client (import/export).
+ *
+ * The default mode (AUTO) chooses the right one for the PHP context:
+ *   - One PHP process → live object.
+ *   - FPM/CLI with multiple children → ticket cache.
+ *   - After fork() and if shm available → shared-memory LRU ring.
+ *
+ * Configuration is possible by both:
+ *   - PHP.INI: for sysadmins (see below).
+ *   - PHP code: pass as 'session_mode', 'shm_size', 'shm_path', etc. in Config/new().
+ *
+ * Example php.ini entries:
+ *     quicpro.shm_size        = 131072             ; 128kB ~ 120 tickets in ring
+ *     quicpro.shm_path        = /quicpro_ring      ; shm_open() path
+ *     quicpro.session_mode    = 0                  ; AUTO, or 1=LIVE, 2=TICKET, 3=WARM, 4=SHM_LRU
+ *
+ * Example in PHP code:
+ *     $cfg = Quicpro\Config::new([
+ *         'session_mode' => QUICPRO_SESSION_SHM_LRU,
+ *         'alpn'         => ['h3'],
+ *     ]);
+ *
+ * All constants:
+ *     QUICPRO_SESSION_AUTO        (0)
+ *     QUICPRO_SESSION_LIVE        (1)
+ *     QUICPRO_SESSION_TICKET      (2)
+ *     QUICPRO_SESSION_WARM        (3)
+ *     QUICPRO_SESSION_SHM_LRU     (4)
+ *
+ * See README.md and docs/TICKET_RESUMPTION_MULTIWORKER.md for
+ * full demos of zero-RTT, worker scaling, and practical multi-process setups.
+ *
+ * You do NOT need to set php.ini values if you prefer config array parameters.
+ * Both mechanisms are always available.
  */
 
 #include <stddef.h>                    /* size_t, NULL */
@@ -77,7 +124,7 @@
 #include <php.h>
 
 /* ──────────────────────────────────────────────────────────────────────────
- * Global Error Buffer (thread-local for ZTS, sonst global)
+ * Global Error Buffer (thread-local for ZTS, otherwise global)
  *───────────────────────────────────────────────────────────────────────────*/
 #ifndef QUICPRO_ERR_LEN
 #  define QUICPRO_ERR_LEN 256
@@ -105,26 +152,7 @@ const char *quicpro_get_error(void)
     return quicpro_last_error;
 }
 
-/* ──────────────────────────────────────────────────────────────────────────
- * 1) Function Prototypes
- *
- * PHP_FUNCTION declarations ensure the engine emits the correct
- * zif_quicpro_* symbols at compile time. This lets PHP scripts call
- * quicpro_connect(), quicpro_send_request(), and all other APIs.
- *───────────────────────────────────────────────────────────────────────────*/
-PHP_FUNCTION(quicpro_connect);
-PHP_FUNCTION(quicpro_close);
-PHP_FUNCTION(quicpro_send_request);
-PHP_FUNCTION(quicpro_receive_response);
-PHP_FUNCTION(quicpro_poll);
-PHP_FUNCTION(quicpro_cancel_stream);
-PHP_FUNCTION(quicpro_export_session_ticket);
-PHP_FUNCTION(quicpro_import_session_ticket);
-PHP_FUNCTION(quicpro_set_ca_file);
-PHP_FUNCTION(quicpro_set_client_cert);
-PHP_FUNCTION(quicpro_get_last_error);
-PHP_FUNCTION(quicpro_get_stats);
-PHP_FUNCTION(quicpro_version);
+
 
 /* ---------------------------------------------------------------------------
  * Resource Registration
@@ -302,4 +330,3 @@ zend_module_entry quicpro_async_module_entry = {
 #ifdef COMPILE_DL_QUICPRO_ASYNC
 ZEND_GET_MODULE(quicpro_async)
 #endif
-
