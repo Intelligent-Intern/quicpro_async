@@ -168,15 +168,4 @@ PHP_FUNCTION(quicpro_get_last_error);
 PHP_FUNCTION(quicpro_get_stats);
 PHP_FUNCTION(quicpro_version);
 
-/* -----------------------------------------------------------------------------
- * PHP_FUNCTION Prototypes: Model Context Protocol (Quicpro\MCP)
- */
-PHP_FUNCTION(quicpro_mcp_connect);
-PHP_FUNCTION(quicpro_mcp_disconnect);
-PHP_FUNCTION(quicpro_mcp_list_tools);
-PHP_FUNCTION(quicpro_mcp_invoke_tool);
-PHP_FUNCTION(quicpro_mcp_list_resources);
-PHP_FUNCTION(quicpro_mcp_get_resource);
-PHP_FUNCTION(quicpro_mcp_fetch_data);
-PHP_FUNCTION(quicpro_mcp_get_last_error);
 
