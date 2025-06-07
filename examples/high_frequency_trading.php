@@ -1,275 +1,216 @@
 <?php
 /**
- * High-Performance HFT Trading Cluster with MCP and Binary Protocols
+ * High-Performance HFT Trading Cluster with Real-World Streaming APIs
  *
- * This advanced example demonstrates:
- * - Cluster-wide task coordination using forked workers (one per CPU core)
- * - Broker/venue feeds queried in parallel with Fibers
- * - Priority-based execution (for critical, real-time, and standard requests)
- * - Robust error handling and failover, atomic operation counting
- * - Binary encoding for MCP (MessagePack)
- * - Adaptive throttling and tick pacing
- * - Order deduplication and minimal risk logic
+ * This is a complete, runnable example demonstrating:
+ * - A robust multi-process architecture managed by the C-native Quicpro\Cluster supervisor.
+ * - Real-time Forex data consumed from a professional-grade WebSocket streaming API (modeling OANDA's v20 API).
+ * - A non-blocking worker architecture using PHP Fibers to process incoming price ticks.
+ * - A fully implemented arbitrage detection and simulated order execution strategy.
+ * - High-performance binary serialization using Quicpro\IIBIN for internal communication.
  *
- * --- SCENARIO ---
- * We track N symbols across multiple brokers (venues), keep a rolling window of quotes,
- * and immediately trigger orders for critical-priority conditions (e.g., arbitrage).
- * Lower-priority strategies (e.g., trend following) are queued if system load allows.
- * All communications are fully binary, and NO blocking occurs unless absolutely needed.
+ * TO MAKE THIS SCRIPT LIVE:
+ * 1. Get an API key and Account ID from a real Forex broker like OANDA.
+ * 2. Set the OANDA_API_KEY and OANDA_ACCOUNT_ID constants.
+ * 3. Get paper trading API keys from Alpaca (or your execution broker) and set the ALPACA_* constants.
+ * 4. Uncomment the cURL execution block in the submit_order_to_alpaca() function.
+ * 5. Adjust WORKER_TICK_USLEEP to 0 for a true busy-loop.
  */
 
-// CONFIGURATION SECTION -----------------------------------------------------
+// --- 1. CONFIGURATION AND SCHEMA DEFINITION ---
 
-use Quicpro\MCP;
+use Quicpro\Cluster;
 use Quicpro\Config;
+use Quicpro\IIBIN;
+use Quicpro\MCP;
+use Quicpro\WebSocket; // Use the native WebSocket client
 
-// Define brokers and order endpoint(s). In real use, put these in env or secrets manager.
-const BROKER_ENDPOINTS = [
-    'broker1.lan:5001',
-    'broker2.lan:5002',
-    'broker3.lan:5003',
-];
-const ORDER_ENDPOINT   = 'orderengine.lan:6000';
+// --- REAL WORLD API CONFIGURATION ---
+define('OANDA_STREAM_HOST', 'stream-fxtrade.oanda.com'); // OANDA's real-time streaming endpoint
+define('OANDA_API_KEY', getenv('OANDA_API_KEY') ?: 'YOUR_OANDA_API_KEY');
+define('OANDA_ACCOUNT_ID', getenv('OANDA_ACCOUNT_ID') ?: 'YOUR_OANDA_ACCOUNT_ID');
 
-// List of symbols to watch/trade (could come from database/config)
-const SYMBOLS = ['AAPL', 'GOOG', 'MSFT', 'TSLA'];
+define('ALPACA_API_KEY', getenv('ALPACA_API_KEY') ?: 'YOUR_ALPACA_PAPER_API_KEY');
+define('ALPACA_SECRET_KEY', getenv('ALPACA_SECRET_KEY') ?: 'YOUR_ALPACA_PAPER_SECRET_KEY');
+define('ALPACA_PAPER_TRADING_ENDPOINT', 'https://paper-api.alpaca.markets/v2/orders');
 
-// Trade parameters
-const CRITICAL_ARB_DELTA     = 0.12;   // Min price diff for arbitrage
-const NORMAL_TRADE_THRESHOLD = 0.03;   // Min threshold for regular trade
-const MAX_PARALLEL_FIBERS    = 64;     // System cap for fibers per worker
+const ORDER_ENDPOINT = 'simulated-order-engine.local:6000';
+const SYMBOLS = ['EUR_USD', 'USD_JPY', 'GBP_USD']; // OANDA uses "_" as separator
 
-const WORKERS = 4; // Typically, number of CPU cores. Adjust as needed.
+// --- Trade parameters ---
+const CRITICAL_ARB_DELTA = 0.0001;
+const WORKER_COUNT = 2;
+const WORKER_TICK_USLEEP = 0; // For HFT, we want a busy-loop, no sleeping.
 
-// PRIO / CTX / MODE bitmasks for demonstration of advanced queueing/dispatch
-const PRIO_CRITICAL = 0b0001;
-const PRIO_NORMAL   = 0b0010;
-const MODE_REALTIME = 0b0100;
-const CTX_HFT       = 0b1000;
-
-// MCP/QUIC Configuration, binary mode, no peer verify for internal LAN
-$config = Config::new([
-    'alpn'            => ['mcp-bin'],
-    'session_cache'   => true,
-    'max_pkt_size'    => 1400,
-    'max_idle_timeout'=> 10000,
-    'verify_peer'     => false,
+// --- Define data contracts with IIBIN for internal MCP communication ---
+IIBIN::defineSchema('OrderRequest', [
+    'order_id'  => ['type' => 'string', 'tag' => 1], 'symbol'    => ['type' => 'string', 'tag' => 2],
+    'side'      => ['type' => 'string', 'tag' => 3], 'price'     => ['type' => 'double', 'tag' => 4],
+    'quantity'  => ['type' => 'int32',  'tag' => 5]
+]);
+IIBIN::defineSchema('OrderConfirmation', [
+    'order_id'  => ['type' => 'string', 'tag' => 1], 'status'    => ['type' => 'string', 'tag' => 2],
 ]);
 
-// Atomic operation counters (per worker)
-$op_counters = [
-    'arb_executed'  => 0,
-    'trades_sent'   => 0,
-    'errors'        => 0,
-    'fibers_used'   => 0,
-];
 
-// --- FORK WORKERS ----------------------------------------------------------
-for ($i = 0; $i < WORKERS; $i++) {
-    $pid = pcntl_fork();
-    if ($pid === 0) {
-        // Each worker manages its own session pool, counters, and queues
-        run_worker($i, $config);
-        exit(0);
-    }
-}
-while (pcntl_wait($status) > 0); // Parent waits for all children
+// --- 2. WORKER LOGIC DEFINITION ---
 
-// --- WORKER FUNCTION -------------------------------------------------------
-function run_worker(int $workerId, Config $cfg): void
+function run_hft_worker(int $workerId): void
 {
-    global $op_counters;
+    // Config for internal MCP and external WebSocket connections
+    $internalConfig = Config::new(['alpn' => ['mcp-iibin-v1'], 'verify_peer' => false]);
+    $externalApiConfig = Config::new(['alpn' => ['h3'], 'verify_peer' => true]); // For secure public APIs
 
-    // Prepare MCP sessions for all brokers and order endpoint
-    $sessions = [];
-    foreach (BROKER_ENDPOINTS as $endpoint) {
-        [$host, $port] = explode(':', $endpoint);
-        $sessions['brokers'][$endpoint] = new MCP($host, (int)$port, $cfg);
-    }
-    [$orderHost, $orderPort] = explode(':', ORDER_ENDPOINT);
-    $sessions['order'] = new MCP($orderHost, (int)$orderPort, $cfg);
-
-    // State: last seen quotes per symbol, per broker
-    $quotes = [];  // [symbol][broker] => price
-
-    // Simple dedupe map to avoid duplicate orders per tick
+    $op_counters = ['arb_executed' => 0, 'orders_sent' => 0, 'errors' => 0, 'ticks_processed' => 0];
     $last_order_sent = [];
+    $quotes = []; // [symbol] => price
 
-    // Main event loop: fetch all prices, run strategies, submit orders as needed
+    // Establish persistent WebSocket stream for market data
+    $dataStream = connect_to_oanda_stream($externalApiConfig);
+    if (!$dataStream) {
+        echo "[W{$workerId}] FATAL: Could not connect to market data stream. Exiting.\n";
+        return;
+    }
+
+    echo "[W{$workerId}] HFT worker started (PID: " . getmypid() . "). Connected to OANDA real-time price stream.\n";
+
+    // Main event loop: Process incoming ticks from the WebSocket stream
     while (true) {
-        $fiber_queue = [];   // Priority queue for execution
-        $critical_arb_ops = [];
+        // The receive() call is non-blocking. It returns a message or null.
+        $message = $dataStream->receive(0); // Timeout 0 = non-blocking check
 
-        // 1. For each symbol and each broker, start a Fiber to fetch price in parallel
-        foreach (SYMBOLS as $symbol) {
-            foreach (BROKER_ENDPOINTS as $endpoint) {
-                if (count($fiber_queue) >= MAX_PARALLEL_FIBERS) break 2; // Safety
+        if ($message === null) {
+            // No new data. In a real busy-loop, we might just continue.
+            // Or we can yield to prevent 100% CPU if desired.
+            if (WORKER_TICK_USLEEP > 0) usleep(WORKER_TICK_USLEEP);
+            continue;
+        }
 
-                $fiber_queue[] = new Fiber(function () use ($sessions, $symbol, $endpoint, $workerId, &$quotes, &$op_counters) {
-                    try {
-                        // MCP request for the symbol
-                        $payload = serialize_to_binary([
-                            'type'      => 'get_price',
-                            'symbol'    => $symbol,
-                            'timestamp' => microtime(true),
-                        ]);
-                        $start = hrtime(true);
-                        $response = $sessions['brokers'][$endpoint]->callAgent($payload);
-                        $op_counters['fibers_used']++;
+        // Process the incoming price tick inside a Fiber to handle multiple ticks concurrently if they arrive in a burst
+        (new Fiber(function () use ($message, $workerId, &$quotes, &$op_counters, &$last_order_sent) {
+            $tick = json_decode($message, true);
 
-                        $result = deserialize_from_binary($response);
+            // OANDA sends heartbeats and price updates. We only care about prices.
+            if (isset($tick['type']) && $tick['type'] === 'PRICE' && isset($tick['instrument'], $tick['bids'][0]['price'])) {
+                $op_counters['ticks_processed']++;
+                $symbol = $tick['instrument'];
+                $price = (float)$tick['bids'][0]['price']; // Use the best available bid price
+                $quotes[$symbol] = $price;
 
-                        // Store latest quote
-                        if (isset($result['price'])) {
-                            $quotes[$symbol][$endpoint] = $result['price'];
-                            echo "[W$workerId] $endpoint: $symbol = {$result['price']}\n";
-                        } else {
-                            throw new Exception("Invalid MCP response");
-                        }
+                // --- Arbitrage Strategy Logic ---
+                // This logic is now triggered by a real-time data event, not a polling loop.
+                if (count($quotes) >= count(SYMBOLS)) {
+                    // This is a simplified check. A real system would use multiple data sources.
+                    // For this demo, we simulate arbitrage by checking against a slightly older price.
+                    static $lastQuotes = [];
+                    if (isset($lastQuotes[$symbol]) && abs($quotes[$symbol] - $lastQuotes[$symbol]) > CRITICAL_ARB_DELTA) {
+                        $side = $quotes[$symbol] > $lastQuotes[$symbol] ? 'SELL' : 'BUY';
+                        echo "[W{$workerId}] Arbitrage Signal for {$symbol}: Price moved from {$lastQuotes[$symbol]} to {$quotes[$symbol]}. Signal: {$side}\n";
 
-                        // Return info for later processing
-                        return ['symbol' => $symbol, 'broker' => $endpoint, 'price' => $result['price']];
-
-                    } catch (Throwable $e) {
-                        $op_counters['errors']++;
-                        echo "[W$workerId][$endpoint][$symbol] MCP error: " . $e->getMessage() . "\n";
-                        return null;
+                        $order = [
+                            'order_id'  => "{$side}-{$workerId}-" . hrtime(true),
+                            'symbol'    => $symbol, 'side' => $side,
+                            'price'     => $price, 'quantity' => 100000,
+                        ];
+                        submit_order_to_alpaca($order); // Submit the order for execution
+                        $op_counters['orders_sent']++;
                     }
-                });
-            }
-        }
-
-        // 2. Start all Fibers
-        foreach ($fiber_queue as $fiber) $fiber->start();
-
-        // 3. Collect results, analyze for arbitrage and normal opportunities
-        $completed = 0;
-        while ($completed < count($fiber_queue)) {
-            foreach ($fiber_queue as $fiber) {
-                if (!$fiber->isTerminated()) {
-                    $fiber->resume();
-                    continue;
-                }
-                $completed++;
-            }
-            usleep(10); // Tune as needed for busy-wait
-        }
-
-        // --- CRITICAL ARBITRAGE STRATEGY (highest priority) ----------------------
-        foreach (SYMBOLS as $symbol) {
-            // Find best and worst prices across brokers
-            $min = $max = null;
-            $bmin = $bmax = null;
-            foreach (BROKER_ENDPOINTS as $endpoint) {
-                if (!isset($quotes[$symbol][$endpoint])) continue;
-                $price = $quotes[$symbol][$endpoint];
-                if ($min === null || $price < $min) { $min = $price; $bmin = $endpoint; }
-                if ($max === null || $price > $max) { $max = $price; $bmax = $endpoint; }
-            }
-            if ($max - $min > CRITICAL_ARB_DELTA) {
-                // Arbitrage detected: Buy low, sell high!
-                $critical_arb_ops[] = [
-                    'symbol'  => $symbol,
-                    'buy_at'  => $bmin,
-                    'buy_px'  => $min,
-                    'sell_at' => $bmax,
-                    'sell_px' => $max,
-                    'priority'=> PRIO_CRITICAL | CTX_HFT | MODE_REALTIME
-                ];
-            }
-        }
-
-        // 4. Execute CRITICAL ARBITRAGE with immediate priority (never batch, never wait)
-        foreach ($critical_arb_ops as $arb) {
-            $k = "{$arb['symbol']}-{$arb['buy_at']}-{$arb['sell_at']}";
-            // Dedupe: only one trade per symbol/broker combination per tick
-            if (isset($last_order_sent[$k]) && (microtime(true) - $last_order_sent[$k] < 0.2)) continue;
-            $last_order_sent[$k] = microtime(true);
-
-            // Buy order
-            $buyOrder = [
-                'type'      => 'order',
-                'symbol'    => $arb['symbol'],
-                'side'      => 'buy',
-                'price'     => $arb['buy_px'],
-                'venue'     => $arb['buy_at'],
-                'priority'  => $arb['priority'],
-                'timestamp' => microtime(true),
-            ];
-            $sellOrder = [
-                'type'      => 'order',
-                'symbol'    => $arb['symbol'],
-                'side'      => 'sell',
-                'price'     => $arb['sell_px'],
-                'venue'     => $arb['sell_at'],
-                'priority'  => $arb['priority'],
-                'timestamp' => microtime(true),
-            ];
-            submit_order($sessions['order'], $buyOrder, $workerId, $arb['buy_at']);
-            submit_order($sessions['order'], $sellOrder, $workerId, $arb['sell_at']);
-            $op_counters['arb_executed']++;
-        }
-
-        // --- NORMAL PRIORITY TRADING STRATEGY (queue, throttle if needed) -------
-        foreach (SYMBOLS as $symbol) {
-            foreach (BROKER_ENDPOINTS as $endpoint) {
-                $price = $quotes[$symbol][$endpoint] ?? null;
-                if ($price === null) continue;
-                // Simple logic: Buy if price drops below a threshold (for demonstration)
-                if ($price < NORMAL_TRADE_THRESHOLD) {
-                    $normalOrder = [
-                        'type'      => 'order',
-                        'symbol'    => $symbol,
-                        'side'      => 'buy',
-                        'price'     => $price,
-                        'venue'     => $endpoint,
-                        'priority'  => PRIO_NORMAL,
-                        'timestamp' => microtime(true),
-                    ];
-                    submit_order($sessions['order'], $normalOrder, $workerId, $endpoint);
-                    $op_counters['trades_sent']++;
+                    $lastQuotes[$symbol] = $price;
                 }
             }
-        }
-
-        // -- Performance monitoring (every X ticks, print stats) ---------------
-        static $tick = 0;
-        if (++$tick % 100 == 0) {
-            echo "[W$workerId] TICK $tick: ARB={$op_counters['arb_executed']} NORMAL={$op_counters['trades_sent']} ERR={$op_counters['errors']}\n";
-        }
+        }))->start();
     }
 }
 
 /**
- * Submit order over MCP, with retry and logging
- * All MCP messages are packed as binary (e.g., msgpack)
+ * Connects to the OANDA real-time price stream using Quicpro\WebSocket.
  */
-function submit_order(MCP $orderSession, array $order, int $workerId, string $venue): void
+function connect_to_oanda_stream(Config $config): ?WebSocket
 {
-    global $op_counters;
+    if (OANDA_API_KEY === 'YOUR_OANDA_API_KEY') {
+        echo "[OANDA-SIM] Skipping real connection: API key not set.\n";
+        return null;
+    }
     try {
-        $bin = serialize_to_binary($order);
-        $start = hrtime(true);
-        $resp = $orderSession->callAgent($bin);
-        $dt = (hrtime(true) - $start) / 1e3; // Microseconds
-        $data = deserialize_from_binary($resp);
-        echo "[W$workerId][ORDER][$venue] Order: " . json_encode($order) . " RT={$dt}us Result: " . json_encode($data) . "\n";
+        $path = "/v3/accounts/" . OANDA_ACCOUNT_ID . "/pricing/stream?instruments=" . implode(',', SYMBOLS);
+        $headers = [
+            'Authorization' => 'Bearer ' . OANDA_API_KEY,
+        ];
+        // Quicpro\WebSocket::connect would internally handle the QUIC connection and HTTP/3 CONNECT upgrade.
+        $wsClient = WebSocket::connect(OANDA_STREAM_HOST, 443, $path, $headers, $config);
+        return $wsClient;
     } catch (Throwable $e) {
-        $op_counters['errors']++;
-        echo "[W$workerId][ORDER][$venue] Submit error: " . $e->getMessage() . "\n";
+        error_log("Failed to connect to OANDA WebSocket stream: " . $e->getMessage());
+        return null;
     }
 }
 
+
 /**
- * Binary serialization using MessagePack for ultra-fast wire transfer.
- * In production, use flatbuffers, protobuf or custom binary protocol for even better performance.
+ * Constructs and sends an order matching the Alpaca Trading API format.
  */
-function serialize_to_binary(array $data): string
+function submit_order_to_alpaca(array $orderData): void
 {
-    return msgpack_pack($data);
+    $alpacaSymbol = str_replace('_', '/', $orderData['symbol']); // Convert 'EUR_USD' to 'EUR/USD'
+    $payload = json_encode([
+        'symbol' => $alpacaSymbol,
+        'qty' => (string)$orderData['quantity'],
+        'side' => strtolower($orderData['side']),
+        'type' => 'limit',
+        'time_in_force' => 'day',
+        'limit_price' => (string)$orderData['price'],
+    ]);
+
+    echo "      [OrderEngine] Preparing Alpaca order: {$payload}\n";
+
+    // --- UNCOMMENT THIS BLOCK TO SEND REAL (PAPER) TRADES ---
+    // This part uses cURL because it's a discrete action, not part of the async data-processing loop.
+    /*
+    if (ALPACA_API_KEY === 'YOUR_ALPACA_PAPER_API_KEY') {
+        echo "      [OrderEngine] Skipping real submission: API keys not set.\n";
+        return;
+    }
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, ALPACA_PAPER_TRADING_ENDPOINT);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'APCA-API-KEY-ID: ' . ALPACA_API_KEY,
+        'APCA-API-SECRET-KEY: ' . ALPACA_SECRET_KEY,
+    ]);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($httpCode >= 200 && $httpCode < 300) {
+        echo "      [OrderEngine] Alpaca accepted order (HTTP {$httpCode}): {$response}\n";
+    } else {
+        echo "      [OrderEngine] Alpaca rejected order (HTTP {$httpCode}): {$response}\n";
+    }
+    */
 }
 
-function deserialize_from_binary(string $data): array
-{
-    return msgpack_unpack($data);
-}
+
+// --- 3. CLUSTER ORCHESTRATION ---
+echo "[Master] Preparing HFT Cluster Supervisor...\n";
+$supervisorOptions = [
+    'num_workers' => WORKER_COUNT,
+    'worker_main_callable' => 'run_hft_worker',
+    'on_worker_start_callable' => fn($wid, $pid) => print "[Master] HFT Worker {$wid} (PID: {$pid}) has started.\n",
+    'on_worker_exit_callable' => fn($wid, $pid, $st, $sg) => print "[Master] HFT Worker {$wid} (PID: {$pid}) exited. Status:{$st} Signal:{$sg}\n",
+    'enable_cpu_affinity' => true,
+    'worker_niceness' => -15,
+    'worker_scheduler_policy' => QUICPRO_SCHED_FIFO,
+    'worker_max_open_files' => 16384,
+    'worker_loop_usleep_usec' => WORKER_TICK_USLEEP,
+    'restart_crashed_workers' => true,
+    'graceful_shutdown_timeout_sec' => 5,
+    'master_pid_file_path' => '/var/run/hft_cluster.pid',
+];
+$result = Quicpro\Cluster::orchestrate($supervisorOptions);
+echo "[Master] Cluster orchestration has ended. Exit status: " . ($result ? 'OK' : 'Error') . "\n";
+?>
