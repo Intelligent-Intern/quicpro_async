@@ -5,7 +5,7 @@
  * This header file defines the C-level structures and function prototypes for
  * the native Pipeline Orchestrator engine within the php-quicpro_async extension.
  * The orchestrator executes pipelines defined in PHP, managing step execution,
- * data flow, MCP agent invocations, Proto serialization, and integration points
+ * data flow, MCP agent invocations, IIBIN serialization, and integration points
  * for advanced features like GraphRAG and automated context logging.
  *
  * PHP userland interacts with this C engine primarily through static methods
@@ -17,7 +17,7 @@
 
 #include <php.h>        /* Zend API, zval, HashTable */
 #include "tool_handler_registry.h" /* For quicpro_tool_handler_config_t */
-/* Other internal Quicpro headers for MCP client and Proto might be included
+/* Other internal Quicpro headers for MCP client and IIBIN might be included
  * directly in pipeline_orchestrator.c rather than here, if not needed for
  * function signatures exposed in this public C API header.
  */
@@ -132,7 +132,7 @@ int quicpro_pipeline_orchestrator_register_tool_handler_from_php(const char *too
  * c. Handle input/output mapping (`param_map`, `output_map` from tool handler).
  * d. Perform RAG sub-calls if configured in the tool handler.
  * e. Make MCP calls using C-native MCP client.
- * f. Handle Proto encoding/decoding using C-native Proto functions.
+ * f. Handle IIBIN encoding/decoding using C-native IIBIN functions.
  * g. Emit events for auto-logging if configured.
  * h. Handle `ConditionalLogic` and errors.
  * 4. Construct a PHP result (e.g., an object of a `Quicpro\PipelineResult` class or an associative array)

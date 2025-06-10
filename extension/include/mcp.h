@@ -83,7 +83,7 @@ PHP_FUNCTION(quicpro_mcp_close);
  * resource $mcp_connection,
  * string $service_name,
  * string $method_name,
- * string $request_payload_binary // Serialized by Quicpro\Proto
+ * string $request_payload_binary // Serialized by Quicpro\IIBIN
  * [, array $per_request_options = []] // e.g., ['timeout_ms' => 5000] for this specific request
  * )
  *

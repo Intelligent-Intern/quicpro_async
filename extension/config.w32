@@ -1,5 +1,26 @@
 ARG_WITH("quicpro_async", "build QuicPro Async support", "no");
+
 if (PHP_QUICPRO_ASYNC != "no") {
-    ADD_SOURCES(configure_module_dirname + "\\src", "cancel.c connect.c http3.c php_quicpro.c poll.c session.c tls.c");
+    ADD_SOURCES(
+        configure_module_dirname + "\\src",
+        "cancel.c " +
+        "cluster.c " +
+        "config.c " +
+        "connect.c " +
+        "http3.c " +
+        "iibin.c " +
+        "iibin_decoding.c " +
+        "iibin_encoding.c " +
+        "iibin_schema.c " +
+        "mcp.c " +
+        "php_quicpro.c " +
+        "pipeline_orchestrator.c " +
+        "poll.c " +
+        "quicpro_ini.c " +
+        "session.c " +
+        "tls.c " +
+        "tool_handler_registry.c " +
+        "websocket.c"
+    );
     ADD_LIBRARY("quiche");
 }

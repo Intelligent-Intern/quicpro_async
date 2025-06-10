@@ -24,7 +24,7 @@ Our technical commitments are:
 
 * **Asynchronous I/O and Fiber-First Design:** The extension's core is built on a non-blocking I/O model. This integrates seamlessly with PHP Fibers (especially with C-level optimizations for PHP 8.4+), allowing a single PHP worker to handle thousands of concurrent network sessions without blocking.
 
-* **High-Level Abstractions:** On top of this foundation, we build powerful convenience layers, including the Model Context Protocol (MCP) for agent communication, a C-native Pipeline Orchestrator for complex workflows, and `ii_bin` for high-performance binary serialization.
+* **High-Level Abstractions:** On top of this foundation, we build powerful convenience layers, including the Model Context Protocol (MCP) for agent communication, a C-native Pipeline Orchestrator for complex workflows, and `IIBIN` for high-performance binary serialization.
 
 * **Native Bidirectional Communication:** We implement WebSocket over HTTP/3 (RFC 9220) natively in C, providing a persistent, low-latency, bidirectional communication channel for real-time applications, event streams, and interactive user interfaces.
 
@@ -45,8 +45,8 @@ The age of workarounds and excuses for building high-performance systems in PHP 
 |                            | CPU Affinity, Scheduling Policies, Resource Limits          |   ✅   |
 | **MCP Layer** | Client & Server for Model Context Protocol                  |   ✅   |
 |                            | Unary (Request-Response) and Streaming RPCs                 |   ✅   |
-| **`ii_bin` (Serialization)**| Protobuf-inspired C-Native Binary Serialization            |   ✅   |
-|                            | Schema & Enum Definition API (`Proto::defineSchema`)        |   ✅   |
+| **`IIBIN` (Serialization)**| Protobuf-inspired C-Native Binary Serialization            |   ✅   |
+|                            | Schema & Enum Definition API (`IIBIN::defineSchema`)        |   ✅   |
 |                            | High-Performance Encode/Decode of PHP Arrays/Objects        |   ✅   |
 | **Pipeline Orchestrator** | C-Native Workflow Engine                                    |   ✅   |
 |                            | Declarative, Multi-Step Pipeline Definition                 |   ✅   |
@@ -104,20 +104,20 @@ For when you need to communicate directly with an MCP agent without the orchestr
 ~~~php
 <?php
 use Quicpro\MCP;
-use Quicpro\Proto;
+use Quicpro\IIBIN;
 use Quicpro\Config;
 
-// Define the data contract using ii_bin
-Proto::defineSchema('EchoRequest', ['message' => ['type' => 'string', 'tag' => 1]]);
-Proto::defineSchema('EchoResponse', ['response' => ['type' => 'string', 'tag' => 1]]);
+// Define the data contract using IIBIN
+IIBIN::defineSchema('EchoRequest', ['message' => ['type' => 'string', 'tag' => 1]]);
+IIBIN::defineSchema('EchoResponse', ['response' => ['type' => 'string', 'tag' => 1]]);
 
 // Connect with default secure settings
 $mcp = new MCP('echo-agent.mcp.local', 4433, Config::new());
 
 // Encode, send request, decode response
-$requestPayload = Proto::encode('EchoRequest', ['message' => 'Hello MCP']);
+$requestPayload = IIBIN::encode('EchoRequest', ['message' => 'Hello MCP']);
 $binaryResponse = $mcp->request('EchoService', 'echo', $requestPayload);
-$response = Proto::decode('EchoResponse', $binaryResponse);
+$response = IIBIN::decode('EchoResponse', $binaryResponse);
 
 echo $response['response']; // outputs: Hello MCP
 ?>
@@ -131,7 +131,7 @@ More detailed examples (HFT, Streaming, WebSockets, Clustering) are in the `/exa
 
 * **`libquiche`:** Cloudflare's excellent Rust library handles the core QUIC transport, congestion control, and TLS 1.3 logic.
 * **C Shim:** A lean C layer exposes `libquiche` and our native C components (Orchestrator, Cluster Supervisor) to the Zend VM.
-* **`ii_bin`:** Our custom, C-native "Intelligent Intern Binary" format, inspired by Protobuf, for ultra-fast serialization of PHP data.
+* **`IIBIN`:** Our custom, C-native "Intelligent Intern Binary" format, inspired by Protobuf, for ultra-fast serialization of PHP data.
 * **Fiber-Aware Event Loop:** The C-level `poll()` function is aware of PHP Fibers. On PHP 8.4+, it uses native C APIs to yield control, preventing blocking and enabling true concurrency. On PHP 8.1-8.3, it works seamlessly with userland Fiber schedulers.
 * **Shared-Memory Ticket Cache:** An LRU cache implemented in shared memory allows forked workers in a `Cluster` to resume TLS sessions initiated by any other worker, preserving 0-RTT handshakes and ensuring high performance in multi-process applications.
 
@@ -141,7 +141,7 @@ More detailed examples (HFT, Streaming, WebSockets, Clustering) are in the `/exa
 
 Our development follows an iterative, test-driven plan. The high-level roadmap is:
 
-* **v0.2:** Complete the foundational **Proto (`ii_bin`)** and **MCP** layers, with full client/server support and robust testing.
+* **v0.2:** Complete the foundational **Proto (IIBIN)** and **MCP** layers, with full client/server support and robust testing.
 * **v0.3:** Complete the C-native **Pipeline Orchestrator** with support for conditional logic and GraphRAG hooks.
 * **v0.4:** Complete the C-native **Cluster Supervisor** with advanced process management features and IPC.
 * **v0.5:** Complete the **WebSocket over H3** implementation and streaming APIs for MCP.
@@ -158,5 +158,4 @@ Pull requests, bug reports, and ideas are highly welcome. Please read **CONTRIBU
 ---
 
 ### License
-
 MIT; see `LICENSE`.
