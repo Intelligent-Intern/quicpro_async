@@ -13,7 +13,7 @@
 
 // Assume the Quicpro PECL extension and its classes are available.
 use Quicpro\PipelineOrchestrator;
-use Quicpro\Proto as IIBIN; // Using IIBIN as the alias for our Proto class
+use Quicpro\IIBIN; // Use the final class name directly.
 
 // --- 1. Bootstrap Phase: Define Schemas and Register Tool Handlers ---
 // This part would run once when your application starts.

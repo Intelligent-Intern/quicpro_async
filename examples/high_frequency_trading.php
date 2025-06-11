@@ -32,7 +32,7 @@ use Quicpro\WebSocket;
 
 // --- REAL WORLD API CONFIGURATION ---
 // Assumes API keys are set as environment variables for security.
-define('MARKET_DATA_STREAM_HOST', 'stream-fxtrade.oanda.com'); // Real-time WebSocket streaming API
+const MARKET_DATA_STREAM_HOST = 'stream-fxtrade.oanda.com'; // Real-time WebSocket streaming API
 define('OANDA_API_KEY', getenv('OANDA_API_KEY') ?: 'YOUR_OANDA_API_KEY');
 define('OANDA_ACCOUNT_ID', getenv('OANDA_ACCOUNT_ID') ?: 'YOUR_OANDA_ACCOUNT_ID');
 
