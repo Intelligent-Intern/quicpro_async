@@ -36,20 +36,20 @@ Here is a diagram visualizing only the core migration task, showing how the orch
 
 ~~~mermaid
 graph TD
-    %% --- Style Definitions ---
-    classDef migration fill:#e0f7fa,stroke:#00796b,stroke-width:2px,color:#004d40
+%% --- Style Definitions ---
+  classDef migration fill:#e0f7fa,stroke:#00796b,stroke-width:2px,color:#004d40
 
-    %% --- Core Migration Workflow ---
-    subgraph "Core Migration Pipeline"
-        M_Start([Start Migration<br/> -]) --> M_Orchestrator_Client["fa:fa-play-circle Orchestrator Client<br/>(run_migration_orchestrator.php)<br/> -"];
-        M_Orchestrator_Client -- 1. Request file stream --> M_List_Agent["fa:fa-cloud-download Lister Agent (MCP Server)<br/>(Reads from old MinIO Gateway)<br/> -"];
-        M_List_Agent -- 2. Stream File Metadata --> M_Orchestrator_Client;
-        M_Orchestrator_Client -- 3. Dispatch Upload Jobs (in parallel) --> M_Upload_Agent["fa:fa-cloud-upload Uploader Agent (MCP Server)<br/>(Writes to new MinIO Cluster)<br/> -"];
-        M_Upload_Agent -- 4. Report Status --> M_Orchestrator_Client;
-        M_Orchestrator_Client --> M_End([End Migration<br/> -]);
-    end
+%% --- Core Migration Workflow ---
+subgraph "Core Migration Pipeline<br/>"
+M_Start([Start Migration<br/> -]) --> M_Orchestrator_Client["fa:fa-play-circle Orchestrator Client<br/>(run_migration_orchestrator.php)<br/> -"];
+M_Orchestrator_Client -- Request file stream --> M_List_Agent["fa:fa-cloud-download Lister Agent (MCP Server)<br/>(Reads from old MinIO Gateway)<br/> -"];
+M_List_Agent -- Stream File Metadata --> M_Orchestrator_Client;
+M_Orchestrator_Client -- Dispatch Upload Jobs (in parallel) --> M_Upload_Agent["fa:fa-cloud-upload Uploader Agent (MCP Server)<br/>(Writes to new MinIO Cluster)<br/> -"];
+M_Upload_Agent -- Report Status --> M_Orchestrator_Client;
+M_Orchestrator_Client --> M_End([End Migration<br/> -]);
+end
 
-    class M_Start,M_Orchestrator_Client,M_List_Agent,M_Upload_Agent,M_End migration;
+class M_Start,M_Orchestrator_Client,M_List_Agent,M_Upload_Agent,M_End migration;
 ~~~
 
 ## Optional Phase 2: Semantic Enrichment with Neo4j, VectorDB, and GraphRAG
