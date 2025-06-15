@@ -1,5 +1,7 @@
 /*
- * include/quicpro_ini.h – Single point of truth for all php.ini directives
+ * =========================================================================
+ * FILENAME: include/quicpro_ini.h
+ * MODULE:   quicpro_async: PHP.ini Directive Declarations
  * =========================================================================
  *
  * This header file declares the global variables that store configuration
@@ -16,7 +18,6 @@
 #include <php.h>
 
 /* --- Public helpers (implemented in quicpro_ini.c) --- */
-/* These functions must be called from the main module's MINIT and MSHUTDOWN phases. */
 
 /**
  * @brief Registers all INI directives with the Zend Engine.
@@ -37,16 +38,13 @@ int quicpro_ini_unregister(void);
  * ----------------------------------------------------------------- */
 
 /* --- IIBIN (Serialization) & AI Settings --- */
-/* Defines limits and default behaviors for the IIBIN and AI modules. */
 extern zend_long   qp_ini_iibin_max_schema_fields; /* Max fields per schema definition */
 
 /* --- Cluster Supervisor Settings --- */
-/* Default settings for the C-native Quicpro\Cluster supervisor. */
 extern zend_long   qp_ini_cluster_default_workers;  /* Default worker count (0 = auto) */
 extern zend_long   qp_ini_cluster_grace_timeout;    /* Graceful shutdown timeout in seconds */
 
 /* --- QUIC / Session / TLS Settings --- */
-/* Default settings for QUIC connections and session management. */
 extern char       *qp_ini_tls_default_ca_file;       /* Default path to CA bundle file */
 extern char       *qp_ini_tls_default_cert_file;     /* Default path to server/client cert file */
 extern char       *qp_ini_tls_default_key_file;      /* Default path to private key file */
@@ -55,15 +53,11 @@ extern zend_long   qp_ini_session_shm_size;         /* Size of shared memory for
 extern char       *qp_ini_session_shm_path;          /* Name of shared memory object */
 
 /* --- General Application Server Defaults --- */
-/*
- * These can serve as fallback defaults for applications built on the extension,
- * such as a simple MCP server. They are provided as a convenience.
- */
 extern zend_long   qp_ini_server_default_port;      /* Default listening port for server applications */
 extern char       *qp_ini_server_default_host;       /* Default listening host for server applications */
 
 /* --- Security / Policy Settings --- */
-/* Defines security policies for the extension. */
 extern zend_bool   qp_ini_allow_config_override;    /* If true, Quicpro\Config objects can override php.ini settings */
+extern char       *qp_ini_cors_allowed_origins;      /* Default CORS policy, comma-separated string or '*' */
 
 #endif /* PHP_QUICPRO_INI_H */
