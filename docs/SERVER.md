@@ -352,43 +352,41 @@ This architecture remains the same: a clean separation between the "brain" (the 
 
 ~~~mermaid
 graph LR
-%% --- Style Definitions ---
-classDef user fill:#ef6c00,color:white
-classDef main_agent fill:#0097a7,stroke:#006064,stroke-width:4px,color:white
-classDef tool_agent fill:#512da8,color:white,stroke-width:2px
-classDef external fill:#424242,color:white
-classDef filesystem fill:#4caf50,color:white
+  classDef user fill:#ef6c00,color:white
+  classDef main_agent fill:#0097a7,stroke:#006064,stroke-width:4px,color:white
+  classDef tool_agent fill:#512da8,color:white,stroke-width:2px
+  classDef external fill:#424242,color:white
+  classDef filesystem fill:#4caf50,color:white
 
-    subgraph "User Interface"
-        A("fa:fa-user User at Terminal or Web UI");
-    end
+  subgraph "User Interface"
+    A("fa:fa-user User at Terminal or Web UI");
+  end
 
-    subgraph "quicpro_async Backend"
-        B["fa:fa-brain Main Orchestrator<br/>(Runs the Pipeline)<br/>-"];
-        C["fa:fa-tools Filesystem Agent<br/>(MCP Server)<br/>-"];
-        D["fa:fa-key LLM API Agent<br/>(MCP Server)<br/>-"];
-    end
-    
-    subgraph "External & System Resources"
-        E("fa:fa-robot External LLM API");
-        F("fa:fa-folder-open Local Filesystem");
-    end
+  subgraph "quicpro_async Backend"
+    B["fa:fa-brain Main Orchestrator<br/>(Runs the Pipeline)<br/>-"];
+    C["fa:fa-tools Filesystem Agent<br/>(MCP Server)<br/>-"];
+    D["fa:fa-key LLM API Agent<br/>(MCP Server)<br/>-"];
+  end
 
-    %% --- Data Flows ---
-    A -- "Provides initial prompt" --> B;
-    B -- "MCP Call to Tool:<br/>readFile('main.php')" --> C;
-    B -- "MCP Call to LLM Bridge" --> D;
-    C -- "Performs OS calls" --> F;
-    D -- "Secure HTTPS Call" --> E;
-    E -- "LLM Response" --> D;
-    D -- "MCP Response" --> B;
-    C -- "Tool Result" --> B;
-    B -- "Final answer" --> A;
+  subgraph "External & System Resources"
+    E("fa:fa-robot External LLM API");
+    F("fa:fa-folder-open Local Filesystem");
+  end
 
-    class A,F user;
-    class B main_agent;
-    class C,D tool_agent;
-    class E external;
+  A -- "Provides initial prompt" --> B;
+  B -- "MCP Tool Call<br/>readFile('main.php')" --> C;
+  B -- "MCP Call to LLM Bridge" --> D;
+  C -- "Performs OS calls" --> F;
+  D -- "Secure HTTPS Call" --> E;
+  E -- "LLM Response" --> D;
+  D -- "MCP Response" --> B;
+  C -- "Tool Result" --> B;
+  B -- "Final answer" --> A;
+
+  class A,F user;
+  class B main_agent;
+  class C,D tool_agent;
+  class E external;
 ~~~
 
 ## Implementation: Minimal Code, Maximum Power
