@@ -352,15 +352,15 @@ This architecture remains the same: a clean separation between the "brain" (the 
 
 ~~~mermaid
 graph LR
-    %% --- Style Definitions ---
-    classDef user fill:#ef6c00,color:white
-    classDef main_agent fill:#0097a7,stroke:#006064,stroke-width:4px,color:white
-    classDef tool_agent fill:#512da8,color:white,stroke-width:2px
-    classDef external fill:#424242,color:white
-    classDef filesystem fill:#4caf50,color:white
+%% --- Style Definitions ---
+classDef user fill:#ef6c00,color:white
+classDef main_agent fill:#0097a7,stroke:#006064,stroke-width:4px,color:white
+classDef tool_agent fill:#512da8,color:white,stroke-width:2px
+classDef external fill:#424242,color:white
+classDef filesystem fill:#4caf50,color:white
 
     subgraph "User Interface"
-        A(fa:fa-user User at Terminal or Web UI);
+        A("fa:fa-user User at Terminal or Web UI");
     end
 
     subgraph "quicpro_async Backend"
@@ -370,8 +370,8 @@ graph LR
     end
     
     subgraph "External & System Resources"
-        E(fa:fa-robot External LLM API);
-        F(fa:fa-folder-open Local Filesystem);
+        E("fa:fa-robot External LLM API");
+        F("fa:fa-folder-open Local Filesystem");
     end
 
     %% --- Data Flows ---
