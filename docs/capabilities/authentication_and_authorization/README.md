@@ -134,16 +134,16 @@ graph LR
     CA -- "Issues Cert A" --> Publisher;
     CA -- "Issues Cert B" --> Subscriber;
 
-    Publisher -- "1. Initiates Connection" --> Subscriber;
-    Subscriber -- "2. Presents Cert B" --> Publisher;
-    Publisher -- "3. Verifies Cert B against CA" --> CA;
+    Publisher -- "Initiates Connection" --> Subscriber;
+    Subscriber -- "Presents Cert B" --> Publisher;
+    Publisher -- "Verifies Cert B against CA" --> CA;
     
-    Publisher -- "4. Presents Cert A" --> Subscriber;
-    Subscriber -- "5. Verifies Cert A against CA" --> CA;
+    Publisher -- "Presents Cert A" --> Subscriber;
+    Subscriber -- "Verifies Cert A against CA" --> CA;
     
-    Subscriber -- "6. Handshake OK" --> Publisher;
+    Subscriber -- "Handshake OK" --> Publisher;
     
-    Publisher -- "7. mTLS Secured MCP Connection" <--> Subscriber;
+    Publisher -- "mTLS Secured MCP Connection" <--> Subscriber;
 ~~~
 
 ### 4. Implementation: A Simple, mTLS-Secured Pub/Sub System
