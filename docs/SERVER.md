@@ -573,10 +573,10 @@ graph TD
        G(fa:fa-ticket-alt Ticketing System);
     end
 
-    B -- "1. MCP Call: commitFile(content)<br/> - " --> C;
-    C -- "2. Uses" --> D;
-    D -- "3. Returns AST" --> C;
-    C -- "4. Writes Cypher Queries" --> E;
+    B -- "MCP Call: commitFile(content)<br/> - " --> C;
+    C -- "Uses" --> D;
+    D -- "Returns AST" --> C;
+    C -- "Writes Cypher Queries" --> E;
     
     F -- "Annotate Code<br/>(MCP Call)<br/> - " --> C;
     G -- "Link Issue<br/>(MCP Call)<br/> - " --> C;
