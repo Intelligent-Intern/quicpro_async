@@ -301,22 +301,22 @@ graph TD
     end
 
     %% --- OAuth Flow ---
-    B -- 2. Redirects to --> C;
-    C -- 3. User authorizes app --> G{Redirect to<br/>Callback URL<br> - };
-    G -- "4. With temporary 'code'" --> B;
-    B -- "5. MCP Call:<br/>loginWithProvider('github', code)<br> - " --> E;
+    B -- Redirects to --> C;
+    C -- User authorizes app --> G{Redirect to<br/>Callback URL<br> - };
+    G -- "With temporary 'code'" --> B;
+    B -- "MCP Call:<br/>loginWithProvider('github', code)<br> - " --> E;
     
-    E -- "6. Exchanges 'code' for 'access_token'<br/>(Server-to-Server HTTPS)<br> - " --> D;
-    D -- "7. Returns 'access_token'" --> E;
+    E -- "Exchanges 'code' for 'access_token'<br/>(Server-to-Server HTTPS)<br> - " --> D;
+    D -- "Returns 'access_token'" --> E;
     
-    E -- "8. **Authorization Check**<br/>API Call: 'Is user a collaborator<br/>on private-repo?'<br> - " --> D;
-    D -- "9. Returns '204 No Content' (Yes) or '404 Not Found' (No)" --> E;
+    E -- "Authorization Check<br/>API Call: 'Is user a collaborator<br/>on private-repo?'<br> - " --> D;
+    D -- "Returns '204 No Content' (Yes) or '404 Not Found' (No)" --> E;
     
-    E -- "10. If authorized, find/create user<br/>(MCP Call)<br> - " --> F;
-    F -- "11. Returns internal user data" --> E;
+    E -- "If authorized, find/create user<br/>(MCP Call)<br> - " --> F;
+    F -- "Returns internal user data" --> E;
     
-    E -- "12. Issues internal JWT" --> B;
-    B -- "13. Session Established" --> A;
+    E -- "Issues internal JWT" --> B;
+    B -- "Session Established" --> A;
 
     %% --- Apply Styles ---
     class A,B frontend;
