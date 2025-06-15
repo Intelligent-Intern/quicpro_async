@@ -189,11 +189,11 @@ graph LR
         C -- Contains --> D;
     end
     
-    A -- "1. MCP Request:<br/>readFile('report.pdf')<br/> - " --> B;
-    B -- "2. Validates & Sanitizes Path" --> C;
-    C -- "3. Reads File" --> D;
+    A -- "MCP Request:<br/>readFile('report.pdf')<br/> - " --> B;
+    B -- "Validates & Sanitizes Path" --> C;
+    C -- "Reads File" --> D;
     D -- "File Content" --> B;
-    B -- "4. MCP Response<br/>(with file content)<br/> - " --> A;
+    B -- "MCP Response<br/>(with file content)<br/> - " --> A;
     
     class A,B,C,D internal;
 ~~~
