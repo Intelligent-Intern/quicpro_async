@@ -1,23 +1,38 @@
 /*
  * =========================================================================
  * FILENAME:   include/quicpro_init.h
- * MODULE:     quicpro_async: Master Module Initializer
- * =========================================================================
+ * PROJECT:    quicpro_async
+ * AUTHOR:     Jochen Schultz <jschultz@php.net>
+ *
+ * WELCOME:  Qapla'!
  *
  * PURPOSE:
- * This header file defines the public C-API for the master initialization
- * and shutdown sequence of the entire `quicpro_async` extension.
  *
- * Its functions are called directly from the main `php_quicpro.c` file
- * during the `MINIT`/`MSHUTDOWN` and `RINIT`/`RSHUTDOWN` phases of the
- * PHP lifecycle.
+ * This header file defines the public C-API for the master dispatcher
+ * responsible for managing the `quicpro_async` extension's lifecycle.
+ * It declares the functions that will be implemented in `src/quicpro_init.c`.
  *
  * ARCHITECTURE:
- * This module acts as a high-level dispatcher. The `quicpro_init_modules()`
- * function is responsible for calling the individual initialization
- * function from every logical sub-module in the framework (e.g., from each
- * of the ~21 configuration modules, server modules, etc.). This enforces a
- * clean, modular startup and shutdown sequence for the entire extension.
+ * This file provides the function prototypes that act as the contract
+ * between the main extension file (`php_quicpro.c`) and the master
+ * dispatcher implementation. These functions are called directly from the
+ * PHP lifecycle macros (MINIT, MSHUTDOWN, etc.).
+ *
+ * AUDIT & REVIEW NOTES:
+ * This file represents the public API for the extension's configuration
+ * lifecycle management. It is a high-impact, critical path file.
+ * Any changes to function signatures here have wide-ranging consequences:
+ *
+ * 1. Deep Understanding Required: As these settings are consumed by the
+ * core functional modules, any change requires a deep understanding
+ * of the underlying implementation that uses the configuration.
+ *
+ * 2. Formal Change Control: A formal issue must be opened and accepted
+ * by the maintainers before any modifications are made.
+ *
+ * 3. Cascade of Changes: A change here necessitates corresponding changes
+ * in `src/quicpro_init.c`, the main `php_quicpro.c` file, AND all
+ * functional modules where the associated configuration is consumed.
  *
  * =========================================================================
  */
@@ -28,46 +43,45 @@
 #include <php.h>
 
 /**
- * @brief Master initialization function for all framework modules.
+ * @brief Declares the master dispatcher for registering all module configurations.
+ * @details This function, implemented in `quicpro_init.c`, will be called from
+ * `PHP_MINIT_FUNCTION`. It orchestrates the registration of all `php.ini`
+ * directives by calling the `_init()` function from each config module.
  *
- * This function is called from `PHP_MINIT_FUNCTION(quicpro_async)`. It
- * orchestrates the startup of all sub-modules by calling their respective
- * `_init()` functions. This includes registering all classes, resources,
- * and php.ini directives.
- *
- * @param type The type of initialization (MODULE_startup, etc.).
+ * @param type The type of initialization (e.g., MODULE_PERSISTENT).
  * @param module_number The unique number assigned to this extension by Zend.
- * @return SUCCESS or FAILURE.
+ * @return `SUCCESS` on successful registration, `FAILURE` otherwise.
  */
 int quicpro_init_modules(int type, int module_number);
 
 /**
- * @brief Master shutdown function for all framework modules.
+ * @brief Declares the master dispatcher for unregistering all module configurations.
+ * @details This function, implemented in `quicpro_init.c`, will be called from
+ * `PHP_MSHUTDOWN_FUNCTION`. It orchestrates the clean shutdown of all
+ * configuration modules by unregistering their INI entries.
  *
- * This function is called from `PHP_MSHUTDOWN_FUNCTION(quicpro_async)`.
- * It orchestrates the clean shutdown of all sub-modules.
+ * CRITICAL: The implementation must unregister handlers in the exact
+ * reverse order of their registration to prevent errors.
  *
- * @param type The type of shutdown (MODULE_shutdown, etc.).
+ * @param type The type of shutdown (e.g., MODULE_PERSISTENT).
  * @param module_number The module number.
- * @return SUCCESS or FAILURE.
+ * @return `SUCCESS` on successful shutdown, `FAILURE` otherwise.
  */
 int quicpro_shutdown_modules(int type, int module_number);
 
-
 /**
- * @brief Master request initialization function.
- *
- * Called from `PHP_RINIT_FUNCTION(quicpro_async)` at the beginning of each
- * PHP request.
+ * @brief Declares the master request initialization function.
+ * @details This function will be called from `PHP_RINIT_FUNCTION` at the
+ * beginning of each PHP request. It provides a hook for initializing
+ * any per-request state or resources.
  */
 int quicpro_request_init(int type, int module_number);
 
-
 /**
- * @brief Master request shutdown function.
- *
- * Called from `PHP_RSHUTDOWN_FUNCTION(quicpro_async)` at the end of each
- * PHP request.
+ * @brief Declares the master request shutdown function.
+ * @details This function will be called from `PHP_RSHUTDOWN_FUNCTION` at the end
+ * of each PHP request. It provides a hook for cleaning up any
+ * per-request state or resources to prevent memory leaks.
  */
 int quicpro_request_shutdown(int type, int module_number);
 
