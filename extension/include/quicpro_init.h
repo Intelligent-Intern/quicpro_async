@@ -4,7 +4,7 @@
  * PROJECT:    quicpro_async
  * AUTHOR:     Jochen Schultz <jschultz@php.net>
  *
- * WELCOME:  Qapla'!
+ * WELCOME:  42
  *
  * PURPOSE:
  *
