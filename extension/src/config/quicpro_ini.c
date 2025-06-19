@@ -1,7 +1,7 @@
 /* quicpro_ini.c – Directive list + MINIT glue
  *
- *  All ini entries live here.  Other code includes quicpro_ini.h
- *  and reads the exported globals.
+ * All ini entries live here.  Other code includes quicpro_ini.h
+ * and reads the exported globals.
  */
 
 #include "quicpro_ini.h"
@@ -28,6 +28,9 @@ static char      *_key_file       = NULL;
 static zend_long  _shm_size       = 131072;
 static char      *_shm_path       = NULL;
 static zend_long  _session_mode   = 0;
+
+static zend_bool  _allow_config_override = 1;
+static char      *_cors_allowed_origins  = NULL;
 /* clang-format on */
 
 /* --------------------------------------------------------------------
@@ -52,6 +55,9 @@ zend_long  qp_ini_shm_size        = 0;
 char      *qp_ini_shm_path        = NULL;
 zend_long  qp_ini_session_mode    = 0;
 
+zend_bool  qp_ini_allow_config_override = 1;
+char      *qp_ini_cors_allowed_origins  = NULL;
+
 /* --------------------------------------------------------------------
  * INI table
  * ----------------------------------------------------------------- */
@@ -74,6 +80,9 @@ PHP_INI_BEGIN()
     STD_PHP_INI_ENTRY("quicpro.shm_size",              "131072", PHP_INI_SYSTEM, OnUpdateLong,   shm_size,       zend_long,  NULL)
     STD_PHP_INI_ENTRY("quicpro.shm_path",              "",       PHP_INI_SYSTEM, OnUpdateString, shm_path,       char *,     NULL)
     STD_PHP_INI_ENTRY("quicpro.session_mode",          "0",      PHP_INI_SYSTEM, OnUpdateLong,   session_mode,   zend_long,  NULL)
+
+    STD_PHP_INI_ENTRY("quicpro.allow_config_override", "1",      PHP_INI_SYSTEM, OnUpdateBool, allow_config_override, zend_bool, NULL)
+    STD_PHP_INI_ENTRY("quicpro.cors_allowed_origins",  "",       PHP_INI_SYSTEM, OnUpdateString, cors_allowed_origins, char *, NULL)
 PHP_INI_END()
 
 /* --------------------------------------------------------------------
@@ -99,6 +108,9 @@ static void sync_public_aliases(void)
     qp_ini_shm_size         = _shm_size;
     qp_ini_shm_path         = _shm_path;
     qp_ini_session_mode     = _session_mode;
+
+    qp_ini_allow_config_override = _allow_config_override;
+    qp_ini_cors_allowed_origins  = _cors_allowed_origins;
 }
 
 /* --------------------------------------------------------------------
