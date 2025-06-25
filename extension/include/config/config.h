@@ -1,6 +1,6 @@
 /*
  * =========================================================================
- * FILENAME:   include/config.h
+ * FILENAME:   include/config/config.h
  * MODULE:     quicpro_async: Master Configuration System
  * =========================================================================
  *
@@ -37,7 +37,7 @@
  * MODULAR STRUCTURE
  *
  * The C implementation is highly modular. This header file includes sub-headers
- * from each configuration domain (e.g., `config/tls.h`). The master
+ * from each configuration domain (e.g., `tls_and_crypto/tls.h`). The master
  * `quicpro_cfg_t` struct is composed of smaller structs defined in these modules.
  *
  * =========================================================================
@@ -53,29 +53,31 @@
  * =========================================================================
  * == Modular Configuration Includes
  * =========================================================================
- * Each header defines a `quicpro_cfg_[name]_t` struct for its own domain.
+ * Each header defines a `quicpro_cfg_[name]_t` struct for its own domain,
+ * matching the new directory structure.
  */
 
-#include "config/app_protocols.h"
-#include "config/bare_metal.h"
-#include "config/autoscale.h"
-#include "config/cluster.h"
-#include "config/admin_api.h"
-#include "config/compute_ai.h"
-#include "config/serialization.h"
-#include "config/mcp.h"
-#include "config/cdn.h"
-#include "config/storage.h"
-#include "config/observability.h"
-#include "config/quic.h"
-#include "config/router.h"
-#include "config/security.h"
-#include "config/smart_contracts.h"
-#include "config/dns.h"
-#include "config/ssh.h"
-#include "config/state.h"
-#include "config/tcp.h"
-#include "config/tls.h"
+#include "app_http3_websockets_webtransport/app_protocols.h"
+#include "bare_metal_tuning/bare_metal.h"
+#include "cloud_autoscale/autoscale.h"
+#include "cluster_and_process/cluster.h"
+#include "dynamic_admin_api/admin_api.h"
+#include "high_perf_compute_and_ai/compute_ai.h"
+#include "iibin/serialization.h"
+#include "mcp_and_orchestrator/mcp.h"
+#include "mcp_and_orchestrator/orchestrator.h"
+#include "native_cdn/cdn.h"
+#include "native_object_store/storage.h"
+#include "open_telemetry/observability.h"
+#include "quic_transport/quic.h"
+#include "router_and_loadbalancer/router.h"
+#include "security_and_traffic/security.h"
+#include "smart_contracts/smart_contracts.h"
+#include "smart_dns/dns.h"
+#include "ssh_over_quic/ssh.h"
+#include "state_management/state.h"
+#include "tcp_transport/tcp.h"
+#include "tls_and_crypto/tls.h"
 
 /**
  * @brief The master C-level representation of a `Quicpro\Config` object.
@@ -85,8 +87,7 @@
  */
 typedef struct quicpro_cfg_s {
     // The underlying raw config handle from the `quiche` library.
-    // This is populated from the settings in the various sub-structs.
-    quiche_config *q_cfg;
+    quiche_config *quiche_cfg;
 
     // A flag that is set to true after the config is used, making it immutable.
     zend_bool frozen;
@@ -100,6 +101,7 @@ typedef struct quicpro_cfg_s {
     quicpro_cfg_compute_ai_t   compute_ai;
     quicpro_cfg_serialization_t serialization;
     quicpro_cfg_mcp_t          mcp;
+    quicpro_cfg_orchestrator_t orchestrator;
     quicpro_cfg_cdn_t          cdn;
     quicpro_cfg_storage_t      storage;
     quicpro_cfg_observability_t observability;
