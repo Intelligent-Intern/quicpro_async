@@ -197,8 +197,6 @@ ZEND_END_ARG_INFO()
 /* }}} */
 
 
-/* --- Deprecated or Internal Functions (if any) --- */
-
 /* Note: `quicpro_cancel_stream` and other low-level functions might be deprecated
  * in favor of methods on the connection objects, or kept as internal helpers.
  * For now, it is kept as an example of a global-space function.

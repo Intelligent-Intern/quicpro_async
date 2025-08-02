@@ -27,4 +27,19 @@ RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local
 
 WORKDIR /workspace
 
+COPY libcurl /workspace/libcurl
+RUN cd /workspace/libcurl && \
+    ./buildconf --force && \
+    ./configure --disable-shared --with-ssl && \
+    make -j$(nproc) && \
+    make install
+
+COPY ./extension /workspace/extension
+COPY ./quiche /workspace/quiche
+RUN cd extension && \
+    phpize && \
+    ./configure --with-quicpro-async --with-quiche=/workspace/quiche && \
+    make -j$(nproc) && \
+    make install
+
 CMD ["tail", "-f", "/dev/null"]

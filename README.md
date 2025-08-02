@@ -1,5 +1,7 @@
 # THIS IS STILL WORK IN PROGRESS - GIVE ME A COUPLE DAYS TO FINISH IT.. DOCUMENTATION FIRST YAY
 
+## must not forget config freeze
+
 ## Our project plan is now defined in a detailed EPIC. Next step: Iteratively implement and test each layer, starting with the core QUIC and Proto modules.
 
 # `quicpro_async`

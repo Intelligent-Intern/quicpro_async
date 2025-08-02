@@ -107,19 +107,15 @@ function process_user_request(string $userRequest, ?string $userClarification = 
 
     $pipelineDefinition = [
         [
-            'id'   => 'AnalysisStep',
-            'tool' => 'AnalyzeRequirements',
-            'input_map' => ['user_request' => '@initial.main_user_request']
+            'id' => 'AnalysisStep', 'tool' => 'AnalyzeRequirements', 'input_map' => ['user_request' => '@initial.main_user_request']
         ],
         [
-            'id'   => 'ConditionalCheck',
-            'tool' => 'ConditionalLogic',
+            'id'   => 'ConditionalCheck', 'tool' => 'ConditionalLogic',
             'input_map' => ['condition_field_path' => '@AnalysisStep.is_ambiguous', 'value_to_compare' => true],
             'params' => ['operator' => 'equals']
         ],
         [
-            'id'   => 'AskUserStep',
-            'tool' => 'AskUserForClarification',
+            'id'   => 'AskUserStep', 'tool' => 'AskUserForClarification',
             'condition_true_only' => true, // This step runs ONLY if the request is ambiguous.
             'input_map' => [
                 'session_id' => '@initial.user_session_id',
@@ -127,12 +123,8 @@ function process_user_request(string $userRequest, ?string $userClarification = 
             ]
         ],
         [
-            'id'   => 'CodeGenerationStep',
-            'tool' => 'GenerateCode',
+            'id'   => 'CodeGenerationStep', 'tool' => 'GenerateCode',
             // This step runs ONLY if the request is NOT ambiguous.
-            // We need a way to express "run if previous condition was false".
-            // For this example, we simulate this by checking if userClarification was already provided.
-            // A real orchestrator might have a more advanced conditional engine.
             'input_map' => [
                 'unambiguous_task'   => '@AnalysisStep.task_summary',
                 'user_clarification' => '@initial.user_clarification_if_any'
